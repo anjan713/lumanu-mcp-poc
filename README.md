@@ -52,7 +52,10 @@ every other document. Then:
 | [07 — Security, observability, testing](./docs/07-security-observability-testing.md) | Auth0, secrets, logging, the two test seams |
 | [08 — Definition of done](./docs/08-definition-of-done.md) | The completion bar for the one-day build |
 
-Decisions with lasting consequences are recorded in [`docs/adr/`](./docs/adr/).
+Decisions with lasting consequences are recorded in [`docs/adr/`](./docs/adr/). Things this
+project learned the hard way — a wrong assumption, a contract that disagreed with our
+documentation, a test that proved less than it claimed — are in
+[`docs/discoveries/`](./docs/discoveries/).
 
 ## Local setup
 
