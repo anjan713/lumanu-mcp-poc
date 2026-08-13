@@ -22,7 +22,9 @@
     "db:reset": "tsx scripts/db/drop.ts && npm run db:migrate && npm run db:seed && npm run hasura:track"
   },
   "dependencies": {
+    "@apollo/client": "^4.2.11",
     "dotenv": "^17.4.2",
+    "graphql": "^16.14.2",
     "pg": "^8.23.0",
     "pino": "^9.5.0"
   },
