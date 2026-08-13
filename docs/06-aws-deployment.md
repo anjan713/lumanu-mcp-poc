@@ -65,11 +65,11 @@ dominate the bill.
 
 ## Infrastructure as code
 
-Serverless Framework generates CloudFormation for Lambda, API Gateway and supporting
+A committed CloudFormation template describes Lambda, API Gateway and supporting
 resources. These are not competing requirements:
 
 ```text
-Serverless Framework
+infra/cloudformation.yml
    ↓
 CloudFormation
    ↓

@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Lumanu MCP POC — a remote MCP server over a swappable Lumanu provider.
+  One Lambda behind an HTTP API. No VPC, no NAT gateway, no database: Supabase
+  and Hasura Cloud are reached over public HTTPS. See docs/09 for what this
+  costs and docs/10 for the resource register.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: lumanu-mcp-poc
+  Stage:
+    Type: String
+    Default: prod
+  ArtifactBucket:
+    Type: String
+    Description: S3 bucket holding the function zip.
+  ArtifactKey:
+    Type: String
+    Description: Key of the function zip. Changing it is what deploys new code.
+  LumanuProvider:
+    Type: String
+    Default: mock
+    AllowedValues: [mock, real]
+    Description: Which LumanuProvider implementation to run. Configuration, not code.
+  SsmParameterPath:
+    Type: String
+    Default: /lumanu-mcp-poc/prod
+    Description: Where the runtime secrets live. See ADR 0003.
+  LogRetentionDays:
+    Type: Number
+    Default: 14
+    Description: >
+      Set explicitly. The default for a log group AWS creates implicitly is
+      never-expire, which accrues storage cost silently and forever.
+
+Resources:
+  # Created here rather than left to Lambda, so that retention is set from the
+  # start. A log group Lambda creates on first invocation never expires.
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProjectName}-${Stage}-mcp'
+      RetentionInDays: !Ref LogRetentionDays
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-${Stage}-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: write-own-logs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub '${LogGroup.Arn}:*'
+        # Scoped to this project's parameter path and nothing wider. The
+        # function can read its own secrets and no other account secret.
+        - PolicyName: read-own-parameters
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [ssm:GetParametersByPath, ssm:GetParameters, ssm:GetParameter]
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmParameterPath}/*'
+              - Effect: Allow
+                Action: kms:Decrypt
+                Resource: !Sub 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*'
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub 'ssm.${AWS::Region}.amazonaws.com'
+
+  Function:
+    Type: AWS::Lambda::Function
+    DependsOn: LogGroup
+    Properties:
+      FunctionName: !Sub '${ProjectName}-${Stage}-mcp'
+      Description: Stateless MCP server over POST /mcp.
+      Runtime: nodejs20.x
+      Architectures: [arm64]
+      Handler: handler.handler
+      Role: !GetAtt ExecutionRole.Arn
+      MemorySize: 512
+      # Generous for a request/response tool call, and short enough that a
+      # hung provider fails rather than billing for fifteen minutes.
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref ArtifactBucket
+        S3Key: !Ref ArtifactKey
+      Environment:
+        Variables:
+          NODE_ENV: production
+          LOG_LEVEL: info
+          LUMANU_PROVIDER: !Ref LumanuProvider
+          # Everything secret is read from here at cold start. Nothing secret
+          # is set as an environment variable, where it would be visible to
+          # anyone with lambda:GetFunctionConfiguration.
+          SSM_PARAMETER_PATH: !Ref SsmParameterPath
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${ProjectName}-${Stage}'
+      Description: Public HTTPS endpoint for the MCP server.
+      # HTTP API rather than REST: a third of the price, and every REST
+      # feature this would need is one the token check already covers.
+      ProtocolType: HTTP
+
+  Integration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt Function.Arn
+      PayloadFormatVersion: '2.0'
+
+  # The only route. No GET: the transport is stateless, so there is no
+  # long-lived event stream to open and no session to delete.
+  Route:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /mcp'
+      Target: !Sub 'integrations/${Integration}'
+
+  # Named ApiStage, not Stage: `Stage` is already a parameter, and
+  # CloudFormation requires resource and parameter names to be unique together.
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: $default
+      AutoDeploy: true
+
+  InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Function
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*/mcp'
+
+Outputs:
+  McpEndpoint:
+    Description: The MCP URL. This is the deliverable.
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/mcp'
+  FunctionName:
+    Value: !Ref Function
+  LogGroupName:
+    Value: !Ref LogGroup

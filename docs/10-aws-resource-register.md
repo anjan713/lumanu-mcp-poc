@@ -15,14 +15,15 @@ Last verified against the account: **2026-08-13**.
 
 ## Created by CloudFormation
 
-Everything here is defined in `serverless.yml`, created as one stack, and removed together
-with `npx serverless remove --stage prod --region us-east-1`. None of it is created by hand.
+Everything here is defined in one template, created as one stack, and removed together
+with `npm run destroy`. None of it is created by hand. The template is
+`infra/cloudformation.yml` — see [ADR 0004](./adr/0004-plain-cloudformation-rather-than-serverless-framework.md).
 
 | # | Resource | Type | Name / identifier | Purpose | Status |
 | --- | --- | --- | --- | --- | --- |
 | 1 | CloudFormation stack | `AWS::CloudFormation::Stack` | `lumanu-mcp-poc-prod` | Holds every resource below. Deleting it deletes them. | planned |
-| 2 | Lambda function | `AWS::Lambda::Function` | `lumanu-mcp-poc-prod-mcp` | Runs the MCP server. Node.js 20, 512 MB, 30 s timeout. | planned |
-| 3 | Lambda execution role | `AWS::IAM::Role` | `lumanu-mcp-poc-prod-<region>-lambdaRole` | What the function may do: write logs, read one SSM path. Nothing else. | planned |
+| 2 | Lambda function | `AWS::Lambda::Function` | `lumanu-mcp-poc-prod-mcp` | Runs the MCP server. Node.js 20 on arm64, 512 MB, 30 s timeout. | planned |
+| 3 | Lambda execution role | `AWS::IAM::Role` | `lumanu-mcp-poc-prod-lambda-role` | What the function may do: write logs, read one SSM path, decrypt via SSM only. Nothing else. | planned |
 | 4 | Lambda log group | `AWS::Logs::LogGroup` | `/aws/lambda/lumanu-mcp-poc-prod-mcp` | Pino output. **14-day retention, set explicitly** — the default is never-expire. | planned |
 | 5 | HTTP API | `AWS::ApiGatewayV2::Api` | `lumanu-mcp-poc-prod` | The public HTTPS endpoint. HTTP API, not REST — a third of the price and sufficient. | planned |
 | 6 | API route | `AWS::ApiGatewayV2::Route` | `POST /mcp` | The only route. Stateless Streamable HTTP. | planned |
@@ -41,7 +42,7 @@ NAT gateway note in [09](./09-aws-cost-model.md).
 ## Created by hand, before the first deploy
 
 These exist outside the stack because they hold secrets and must not be readable from a
-committed template. They are created once and survive `serverless remove`.
+committed template. They are created once and survive stack deletion.
 
 | # | Resource | Type | Name | Holds | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -51,7 +52,7 @@ committed template. They are created once and survive `serverless remove`.
 | 13 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/AUTH0_DOMAIN` | Auth0 tenant domain | planned |
 | 14 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/AUTH0_AUDIENCE` | Auth0 API identifier | planned |
 | 15 | KMS key | AWS-managed | `aws/ssm` | Encrypts the parameters above. Created by AWS on first use; free. | planned |
-| 16 | S3 bucket | `AWS::S3::Bucket` | `serverless-framework-deployments-us-east-1-<suffix>` | Deployment artefacts. Created by Serverless on first deploy, shared across stacks, **not deleted by `serverless remove`**. | planned |
+| 16 | S3 bucket | `AWS::S3::Bucket` | `lumanu-mcp-poc-artifacts-346380392072-us-east-1` | Function zips, content-addressed. Created by `npm run deploy` on first run, public access blocked, **not deleted with the stack**. | planned |
 
 Read them back at any time — values are omitted, names only:
 
@@ -104,7 +105,7 @@ never-expire, which is the one setting in this stack that quietly accrues cost f
 
 ```bash
 # 1. The stack: function, role, log group, HTTP API, routes, permissions.
-npx serverless remove --stage prod --region us-east-1
+npm run destroy
 
 # 2. The parameters, which the stack does not own.
 aws ssm delete-parameters --region us-east-1 --names \
@@ -114,8 +115,8 @@ aws ssm delete-parameters --region us-east-1 --names \
   /lumanu-mcp-poc/prod/AUTH0_DOMAIN \
   /lumanu-mcp-poc/prod/AUTH0_AUDIENCE
 
-# 3. The Serverless deployment bucket, if nothing else uses it. Costs pennies; check first.
-aws s3 ls | grep serverless-framework-deployments
+# 3. The artefact bucket, which the stack does not own. Costs pennies; check first.
+aws s3 rb s3://lumanu-mcp-poc-artifacts-346380392072-us-east-1 --force
 ```
 
 After step 1, confirm nothing is left:

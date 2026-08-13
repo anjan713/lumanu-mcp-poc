@@ -69,3 +69,5 @@ scratch/
 
 .claude/
 CLAUDE.md
+# Lambda build artefacts
+build/

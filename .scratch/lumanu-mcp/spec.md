@@ -268,7 +268,7 @@ receives instructions for minting a demo token.
 
 ### Deployment
 
-Serverless Framework generating CloudFormation, deploying Lambda on the Node.js 20
+A plain CloudFormation template (ADR 0004), deploying Lambda on the Node.js 20
 runtime plus API Gateway into `us-east-1`. Stack outputs include the MCP endpoint. No
 VPC, no NAT gateway, and no AWS-hosted database: Supabase and Hasura Cloud are reached
 over public HTTPS. Secrets — the Supabase connection string, the Hasura admin secret, the

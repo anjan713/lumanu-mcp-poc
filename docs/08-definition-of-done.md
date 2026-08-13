@@ -49,7 +49,7 @@ definition of done rather than an admission against it.
 
 - [ ] Lambda deployment works
 - [ ] API Gateway exposes the MCP endpoint
-- [ ] Serverless Framework generates CloudFormation reproducibly
+- [ ] The committed CloudFormation template deploys reproducibly
 - [ ] Stack outputs include the MCP endpoint
 - [ ] No normal deployment step requires console configuration
 

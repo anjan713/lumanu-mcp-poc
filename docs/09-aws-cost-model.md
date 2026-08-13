@@ -41,7 +41,7 @@ API Gateway  ──▶  Lambda (Node.js 20)  ──▶  SSM Parameter Store (+ K
 | **SSM Parameter Store** | Holds the Supabase URL, Hasura admin secret, Auth0 client secret as `SecureString`. | Free at standard tier |
 | **KMS** | Encrypts those parameters. Uses the AWS-managed `aws/ssm` key. | Free for AWS-managed keys |
 | **CloudWatch Logs** | Receives the Pino JSON log lines. | GB ingested + GB stored |
-| **S3** | Serverless Framework's deployment bucket, holding the zipped function. | GB stored + requests |
+| **S3** | Artefact bucket, holding the zipped function. | GB stored + requests |
 | **CloudFormation** | Creates all of the above from the Serverless config. | Free for AWS resource types |
 | **IAM** | The Lambda execution role and its policies. | Free |
 
@@ -143,7 +143,7 @@ it is the usual way a small Lambda produces a large bill and worth stating.
 A $100 monthly budget already exists. Before deploying, three cheap things make this project's
 share of the bill visible on its own:
 
-1. **Tag everything.** Serverless Framework can apply stack tags to every resource it creates.
+1. **Tag everything.** `npm run deploy` applies stack tags to every resource it creates.
    Tagging `project=lumanu-mcp-poc` is what makes the next two steps possible.
 2. **Activate the tag as a cost allocation tag** in Billing → Cost allocation tags. Until it
    is activated, Cost Explorer cannot group by it. It only applies from activation onward, so
@@ -168,7 +168,7 @@ aws ce get-cost-and-usage \
 The whole deployment is one CloudFormation stack, so it can be removed completely:
 
 ```bash
-npx serverless remove --stage prod --region us-east-1
+aws cloudformation delete-stack --stack-name lumanu-mcp-poc-prod --region us-east-1
 ```
 
 That deletes the Lambda, the API Gateway, the IAM role and the log groups. Two things survive
@@ -177,8 +177,7 @@ on purpose and must be removed by hand if you want the cost to reach zero:
 - **The SSM parameters**, which Serverless does not manage because they are created by hand
   before the first deploy. They cost nothing, so leaving them is harmless, but
   `aws ssm delete-parameters` removes them.
-- **The Serverless deployment bucket** in S3, which holds past deployment artefacts. Pennies,
-  but it lingers.
+- **The artefact bucket** in S3, which holds past deployment zips. Pennies, but it lingers.
 
 ## Summary
 
