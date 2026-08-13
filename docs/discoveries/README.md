@@ -16,3 +16,8 @@ proving less than it claimed. Each file is self-contained.
 - [Hasura acknowledges table tracking before the GraphQL schema is ready](./2026-08-13-hasura-acknowledges-tracking-before-the-schema-is-ready.md) — a success response that is not yet true
 - [A script that runs on import nearly let a test wipe the database](./2026-08-13-a-script-that-runs-on-import.md) — entry points must not be importable
 - [ESM-only dependencies do not load in this project's tests](./2026-08-13-esm-only-dependencies-break-the-test-run.md) — check the `exports` map; `require()` succeeding is not evidence
+
+### The server and its tests
+
+- [A per-request MCP server must be closed, or it leaks](./2026-08-13-a-per-request-mcp-server-must-be-closed.md) — a green suite that will not exit is a finding, not a nuisance
+- [Stubbing `fetch` did not intercept jose, and the seam was the better fix](./2026-08-13-mocking-fetch-did-not-intercept-jose.md) — `globalThis.fetch` is not a chokepoint in Node
