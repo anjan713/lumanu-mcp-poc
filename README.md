@@ -85,6 +85,19 @@ then states exactly what changed in the contract, and `npm test` says whether th
 depended on it. `src/providers/wire.ts` is the readable view of those types, and it is what
 the provider layer is written against.
 
+### The data layer
+
+Before anything touches the schema, prove the connection:
+
+```bash
+npm run db:smoke
+```
+
+Three checks, in the order they can fail: Supabase reachable on the Supavisor session-mode
+pooler, Hasura Cloud reachable with the admin secret, and — the one that matters — Hasura
+actually pointed at *that same* database, proven by reading back a row written over the
+direct connection. Hasura answering GraphQL proves only that Hasura is awake.
+
 ## Deliberately out of scope for the one-day POC
 
 Not partially implemented — a half-wired integration is worse than an absent one.
