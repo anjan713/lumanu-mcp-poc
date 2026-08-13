@@ -25,8 +25,8 @@ Under construction. Work is tracked as eight tracer-bullet tickets in
 
 | # | Ticket | Status |
 | --- | --- | --- |
-| 01 | Repo foundation, corrected docs, ADRs | in progress |
-| 02 | Lumanu contract harvested and typed | not started |
+| 01 | Repo foundation, corrected docs, ADRs | done |
+| 02 | Lumanu contract harvested and typed | done |
 | 03 | Data layer live: Supabase, Hasura, schema, seed | not started |
 | 04 | Tracer bullet: live authenticated MCP URL | not started |
 | 05 | Read tools over the canonical data | not started |
@@ -65,6 +65,22 @@ npm test
 
 The test suite runs green with **no credentials** — tool-level tests inject an in-memory
 provider. Credentials are only needed for the integration suite and for deployment.
+
+### Lumanu's contract
+
+Lumanu publishes no single OpenAPI document; each reference page embeds a fragment for one
+endpoint. Those fragments are harvested and committed, so nothing in the build reaches the
+network:
+
+```bash
+npm run harvest:contract   # re-fetch and re-stitch  → docs/lumanu-reference/
+npm run generate:types     # stitched spec → types   → src/generated/lumanu-api.ts
+```
+
+Both outputs are committed. Run them only when Lumanu updates its documentation; the diff
+then states exactly what changed in the contract, and `npm test` says whether this project
+depended on it. `src/providers/wire.ts` is the readable view of those types, and it is what
+the provider layer is written against.
 
 ## Deliberately out of scope for the one-day POC
 

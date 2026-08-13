@@ -35,7 +35,8 @@ _Avoid_: Vendor, creator, payee, supplier, recipient
 **Partner Status**:
 A single value describing a Partner's combined onboarding and tax state — for example
 `completed_w9` or `awaiting_w9_submission`. There is one such value per Partner, not a
-separate onboarding state and tax state.
+separate onboarding state and tax state. A Partner invited but not yet through any check
+has no status at all.
 _Avoid_: Onboarding state, tax state, KYC status, verification status
 
 ### Money owed
@@ -46,10 +47,13 @@ _Avoid_: Invoice, bill, payout request, line item
 
 **Payable Status**:
 The lifecycle value of a Payable: `unapproved`, `approved`, `will_pay`, or `canceled`.
-`will_pay` means the Payable has been funded and is scheduled to reach the Partner.
-There is no `paid` status — settlement is evidenced by a Funding and its Balance
-Transaction.
+`will_pay` means the Payable has been funded and is scheduled to reach the Partner, and
+is the terminal state here — settlement is evidenced by a Funding and its Balance
+Transaction, never by a status change.
 _Avoid_: Paid, settled, complete, pending
+
+> Lumanu's own enum has a fifth value, `paid`. It is carried faithfully in the wire
+> types, and nothing in this POC ever produces it. Say `will_pay`.
 
 ### Money held and moved
 

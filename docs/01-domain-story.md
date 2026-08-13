@@ -68,19 +68,29 @@ A grouping of spend inside a Workspace. Here, `Summer Creator Campaign`.
 
 ### Payable
 
-One payment obligation from a Workspace to a Partner. Lumanu's real status enum:
+One payment obligation from a Workspace to a Partner. Lumanu's real `status` enum, read
+from the harvested fragment:
 
 ```text
-null
 unapproved
 approved
 will_pay
 canceled
+paid
 ```
 
-`will_pay` means the Payable has been funded and is scheduled to reach the Partner. There
-is **no `paid` status** — settlement is evidenced by a Funding and its Balance Transaction.
-`null` is real but unused here, as the canonical scenario does not need it.
+`will_pay` means the Payable has been funded and is scheduled to reach the Partner, and is
+the terminal state here — settlement is evidenced by a Funding and its Balance Transaction.
+
+`paid` is real, and unused: no flow in this POC produces it. It is carried in the wire
+types because the fragment defines it, and an earlier draft of this document was wrong to
+say it did not exist. The field is optional rather than nullable, so a Payable may carry no
+status at all; that too is unused here.
+
+Lumanu also publishes a second, richer `payable_status` — tracking payee state, transfers
+and reversals — and an unconstrained `vendor_status` string. Both are carried; the
+reasoning in this POC keys off `status`. See
+[docs/02](./02-official-api-sources.md#payables-carry-three-status-fields-not-two).
 
 ### Workspace Balance
 

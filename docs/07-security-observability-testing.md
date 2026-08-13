@@ -59,10 +59,14 @@ No secrets. No Partner personal data beyond what the log line needs.
 
 ## Testing
 
-Tests are written at **two seams and nowhere else**. Nothing mocks Apollo or Hasura, and no
-test asserts that a particular provider method was called or that a GraphQL document had a
-given shape. A good test here asserts what a tool returns and what state a write leaves
+The system under test has **two seams and no others**. Nothing mocks Apollo or Hasura, and
+no test asserts that a particular provider method was called or that a GraphQL document had
+a given shape. A good test here asserts what a tool returns and what state a write leaves
 behind.
+
+Build tooling is not the system under test, and has its own small seam — see
+[The harvested contract](#the-harvested-contract) below. The rule that matters is that no
+test reaches *between* the two product seams, not that no other code may be tested at all.
 
 ### Seam 1 — the MCP tool surface
 
@@ -110,6 +114,27 @@ contract fails the build.
 This proves the swap boundary is real — and it is also what makes the in-memory fake used
 at Seam 1 trustworthy rather than a place for drift to hide.
 
+### The harvested contract
+
+Not a product seam — this tests the build tooling that caches Lumanu's published schemas,
+and the cache it produces. Three things are checked, because each fails differently:
+
+- **Extraction and stitching**, on synthetic pages: that a fragment is read out of a
+  reference page correctly, and that two pages defining the same schema differently abort
+  the harvest rather than silently picking one.
+- **The committed cache**, on the real files: that `openapi.json` is exactly what
+  re-stitching the committed fragments produces, and that the generated types are exactly
+  what the committed spec generates. Both are derived files committed beside their inputs,
+  so without this they could drift apart while every other test kept passing.
+- **The declared field names and enums** of each schema the provider reads.
+
+That last one carries the weight, and is worth explaining. Validating a value against
+Lumanu's schema cannot catch a field being renamed or removed: Lumanu marks almost nothing
+`required` and forbids no additional properties, so an object missing a renamed field still
+validates perfectly. Enum drift and missing required fields do fail validation; renames do
+not. Since a rename is the commonest kind of wire drift and the one that would silently
+break the provider mapping, the field names are asserted directly.
+
 ### Additional checks
 
 The stored Workspace Balance equals the sum of Balance Transactions. A reseeded database
@@ -118,7 +143,8 @@ reproduces byte-identical canonical figures.
 ### Not tested
 
 Auth0 validation against live Auth0, CloudFormation deployment, and the harvest script's
-network fetching. Each is verified by hand once.
+network fetching — the parsing and stitching it wraps are covered above, but no test
+fetches from `developers.lumanu.com`. Each is verified by hand once.
 
 ## Out of scope
 

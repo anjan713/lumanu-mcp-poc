@@ -379,9 +379,11 @@ signing, retries and event infrastructure; additional onboarding models; the ful
 OAuth authorization-server flow; MCP session persistence, subscriptions and resumability;
 and Plaid, Unit, Codat, Persona and TaxBit.
 
-Lumanu's `null` Payable status is real but unused, as the canonical scenario does not need
-it. Partner statuses beyond `completed_w9` and `awaiting_w9_submission` are likewise
-modelled in the enum but not seeded.
+Lumanu's `paid` Payable status is real but unused — the harvested fragment defines it, and
+no flow here produces it, since `will_pay` is this POC's terminal state. Lumanu's second
+`payable_status` field and its unconstrained `vendor_status` are carried on the wire but
+not reasoned over. Partner statuses beyond `completed_w9` and `awaiting_w9_submission` are
+likewise modelled in the enum but not seeded.
 
 ## Further Notes
 

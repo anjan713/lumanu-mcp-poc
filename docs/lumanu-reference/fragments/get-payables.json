@@ -1,0 +1,387 @@
+{
+  "openapi": "3.1.0",
+  "x-stoplight": {
+    "id": "8e0ee168f74b3"
+  },
+  "info": {
+    "title": "Lumanu Payment API",
+    "version": "1.0",
+    "description": "## **Overview**\n\nLumanu operates as a secure payment solution purpose-built for the marketing economy. Unlike generic payment processors or payout automation tools, Lumanu is a **Master Vendor** specifically designed to handle the unique requirements of marketing payments and tax compliance, including influencer compensation, affiliate payouts, and talent management relationships.\n\nAs a Master Vendor solution:\n\n* Payees only need to verify once to receive payments from any Buyer in the Lumanu network  \n* Lumanu takes on all compliance risks and responsibilities, with verification processes tailored for marketing industry participants  \n* Specialized support for marketing payment scenarios like:  \n  * Direct creator payments  \n  * Talent management disbursement  \n  * Agency payment flows  \n  * Affiliate program management  \n  * Creative production vendors  \n* All compliance checks (identity, business, tax, watchlist) are handled at the network level with industry-specific risk assessment  \n* Verification status and payment eligibility are maintained across the entire network  \n* Vendors can manage their profile, banking, and tax information in one place\n\nThis Master Vendor approach eliminates the traditional burden of repeatedly onboarding vendors into individual payment or procurement systems, while maintaining enterprise-grade security and compliance standards tailored to marketing industry requirements.\n\nThe Lumanu Partner API enables platforms to integrate Lumanu directly into their applications, offering enterprise-grade payment infrastructure while maintaining the compliance and security standards required by large enterprises in the marketing space.\n\n# **Master Vendor Solution**\n\n## **Core Concepts**\n\n### **Workspaces**\n\nA workspace represents a dedicated payment environment for a Buyer within your platform. The \"Buyer\" can be either:\n\n* Your end client (when your platform is not in the money flow)  \n* Your platform's business (when your platform is in the money flow)\n\nEach workspace:\n\n* Has a dedicated Lumanu Wallet with its own account & routing number  \n* Maintains separate funds, vendor lists, and payment workflows  \n* Has its own set of financial controls, approval workflows, and security settings  \n* Supports multiple projects and user roles  \n* Prevents commingling of funds between different buyers\n\nWorkspace status progression:\n\n1. `pending` \\- Initial state when workspace is created  \n2. `awaitingDocuments` \\- Additional documents needed for verification  \n3. `approved` \\- Workspace verified and active or  \n4. `denied` \\- Workspace verification failed\n\n### **Vendors**\n\nVendors are the payees (typically creators/influencers) who receive payments through the Lumanu network. Key aspects:\n\n* Vendors can be invited via email or Lumanu ID  \n* Each vendor undergoes automated compliance checks including:  \n  * Personal ID verification  \n  * Phone verification  \n  * Business information and TIN checks  \n  * OFAC and watchlist screening  \n  * Bank account validation  \n* Special verification flows exist for talent management entities\n\n### **Payables**\n\nPayables represent individual payment obligations to vendors. They progress through the following statuses:\n\n* `draft` \\- Initial state when created  \n* `approved` \\- After approval, ready for funding  \n* `will_pay` \\- Funded and scheduled for payment  \n* `paid` \\- Payment completed  \n* `canceled` \\- Payment canceled\n\n### **Projects**\n\nProjects are containers within workspaces that help organize payments, manage budgets, and track spend at a more granular level.\n\nAdvanced project features designed for enterprises are available with an enterprise contract with Lumanu. This includes Project Wallets, which enable strict segregation of funds between projects (e.g., for different POs or departments) to support enterprise financial control requirements.\n\nProjects can be listed and viewed via the Lumanu Partner API.\n\n# **Money Flows**\n\nThe API supports two primary money flow configurations that determine who the \"Buyer\" is in your integration:\n\n1. **Direct Client Flow**:  \n   * Your end client is the Buyer  \n   * Client funds their own Lumanu wallet  \n   * Your platform is not in the money flow  \n   * Lumanu handles vendor payments on behalf of the client  \n2. **Platform-Mediated Flow**:  \n   * Your platform is the Buyer  \n   * Your platform funds the Lumanu wallet  \n   * Your platform is in the money flow  \n   * Lumanu handles vendor payments on behalf of your platform\n\nIn both cases, Lumanu acts as the master vendor, handling all compliance, tax requirements, and vendor payments while maintaining appropriate separation of funds.\n\n# **General Information**\n\n## **Compliance Standards**\n\n* SOC2 compliant  \n* ISO27001 certified  \n* GDPR compliant  \n* Regular security audits and penetration testing  \n* Automated fraud detection and prevention\n\n## **Data Privacy**\n\n* All data is encrypted in transit and at rest  \n* PII is handled according to GDPR standards  \n* Workspace isolation prevents data leakage between clients\n\n## **General Workflow**\n\nThere are two primary integration flows depending on your business model:\n\n### **Platform-Mediated Flow**\n\nWhen your platform handles the money flow:\n\n1. **Platform Workspace Setup**  \n     \n   * Create a single workspace for your platform (status: pending)  \n   * Complete the KYB (Know Your Business) application via the provided URL  \n   * Provide additional documents if requested (status: awaitingDocuments)  \n   * Wait for workspace approval (status changes to approved or denied)  \n   * Track verification status through workspace API\n\n   \n\n2. **Payment Processing**  \n     \n   * Create payables to vendors  \n   * Approve payables when ready for payment  \n   * Fund payments using either:  \n     * Invoice funding: Create a funding invoice and pay via bank transfer  \n     * Balance funding: Pay from existing wallet balance  \n   * Monitor wallet transactions and balance  \n   * Track payment status\n\n   \n\n3. **Vendor Management**  \n     \n   * Invite vendors to receive payments  \n   * Vendors complete their own verification process\n\n### **Direct Client Flow**\n\nWhen your clients handle their own payments:\n\n1. **Client Workspace Setup**  \n     \n   * Create individual workspaces for each client (status: pending)  \n   * Clients complete their own KYB applications  \n   * Provide additional documents if requested (status: awaitingDocuments)  \n   * Track verification status (status changes to approved or denied)\n\n   \n\n2. **Payment Processing**  \n     \n   * Clients fund their own accounts  \n   * Create and approve payables on behalf of clients  \n   * Monitor payment status\n\n   \n\n3. **Vendor Management**  \n     \n   * Invite vendors on behalf of clients  \n   * Vendors complete verification once for the network\n\n# **Technical Documentation**\n\n## **Environments**\n\nThe Lumanu Partner API provides two environments for development and production use:\n\n### **Sandbox Environment**\n\n- API Base URL: `https://partner-api.lumanu.link`  \n- Auth Domain: `lumanu-staging.auth0.com`  \n- Used for development and testing  \n- Simulates all API functionality without moving real money  \n- Allows simulation of deposits for testing payment flows  \n- Test vendor invites and payment workflows safely  \n- Recommended for initial integration and testing\n\n### **Production Environment**\n\n- API Base URL: `https://partner-api.lumanu.com`  \n- Auth Domain: `lumanu.auth0.com`  \n- Used for live transactions  \n- Handles real money movements  \n- Cannot simulate deposits \\- all funds must be real  \n- Requires complete compliance checks  \n- Use only after thorough testing in sandbox\n\n### **Environment Best Practices**\n\n- Always start integration work in the sandbox environment  \n- Use separate API credentials for sandbox and production  \n- Test all error scenarios in sandbox before moving to production  \n- Never use production credentials in development environments  \n- Clearly label sandbox vs production in your application code\n\n## **Rate Limits**\n\n* Standard tier: 100 requests per minute  \n* Enterprise tier: Custom limits available\n\n## **Error Handling**\n\nThe API uses standard HTTP response codes:\n\n* 2xx: Success  \n* 4xx: Client errors  \n* 5xx: Server errors\n\nDetailed error messages are provided in the response body:\n\n```\n{\n  \"error\": {\n    \"code\": \"invalid_request\",\n    \"message\": \"Detailed error description\",\n    \"request_id\": \"unique_request_identifier\"\n  }\n```\n\n## **Authentication**\n\nThe Lumanu Partner API uses OAuth 2.0 client credentials flow for authentication. This provides secure access for server-to-server API requests.\n\n### **Getting Access Tokens**\n\n1. You will receive a Client ID and Client Secret from Lumanu  \n2. Exchange these credentials for an access token by making a POST request to the appropriate authentication endpoint for your environment:\n\n```\nPOST https://{environment-auth-domain}/oauth/token\nContent-Type: application/json\n\n{\n    \"client_id\": \"your_client_id\",\n    \"client_secret\": \"your_client_secret\",\n    \"audience\": \"{api-base-domain}\",\n    \"grant_type\": \"client_credentials\"\n}\n```\n\nWhere `{environment-auth-domain}` is:\n\n- Sandbox: `lumanu-staging.auth0.com`  \n- Production: `lumanu.auth0.com`\n\nWhere `{api-base-domain}` is:\n\n- Sandbox: `https://lumanu-demo.hasura.app/v1/graphql`  \n- Production: `https://lumanu-prod.hasura.app/v1/graphql`\n\n**Example Response:**\n\n```\n{\n    \"access_token\": \"eyJhbGc...\",\n    \"token_type\": \"Bearer\",\n    \"expires_in\": 86400\n}\n```\n\n### **Using Access Tokens**\n\nInclude the access token in the Authorization header of all API requests:\n\n```\nAuthorization: Bearer eyJhbGc...\n```\n\n### **Token Lifecycle**\n\n- Access tokens are valid for 24 hours (86400 seconds)  \n- Request a new token when the current token expires  \n- Store tokens securely and never expose them in client-side code  \n- Do not share tokens between different integrations\n\n## **Webhooks**\n\nLumanu uses webhooks to send real-time notifications about events in your integration. When events occur, we'll send HTTP POST requests to your configured endpoint with signed payloads containing event details.\n\n### **Security**\n\nEach webhook request includes a signature in the `X-Signature` header. This signature is a HMAC SHA-256 hash of the request body using your webhook secret.\n\nTo verify webhook authenticity:\n\n1. Get the signature from the `X-Signature` header  \n2. Create a HMAC SHA-256 hash of the raw request body using your webhook secret  \n3. Compare the hashes \\- they should match exactly\n\n**Example Verification (Node.js):**\n\n```javascript\nconst crypto = require('crypto');\n\nfunction verifyWebhookSignature(body, signature, secret) {\n  const hmac = crypto.createHmac('sha256', secret);\n  const digest = hmac.update(body).digest('hex');\n  return crypto.timingSafeEqual(\n    Buffer.from(signature),\n    Buffer.from(digest)\n  );\n}\n```\n\n### **Events**\n\nAll webhook events follow a standard format:\n\n```json\n{\n  \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n  \"event_type\": \"entity.event\",\n  \"data\": {\n    \"id\": \"75eb2d87-1ce7-4e71-a9af-0c3a63547555\"\n  }\n}\n```\n\nThe webhook data will contain the identifier of the entity that has changed (i.e. for `workspace.created` it will be the workspace id). It's recommended that you use this to retrieve the entity from the API to get other fields on that entity as they may have changed since the webhook was created or processed.\n\n#### Workspace Events\n\n- `workspace.created` \\- Triggered when a workspace is created  \n- `workspace.updated` \\- Triggered when workspace details are updated  \n\n#### Payable Events\n\n- `payable.created` \\- Triggered when a payable is created  \n- `payable.approved` \\- Triggered when a payable is approved  \n- `payable.unapproved` \\- Triggered when a payable is unapproved  \n- `payable.canceled` \\- Triggered when a payable is canceled  \n- `payable.paid` \\- Triggered when a payable is paid\n\n#### Transfer Events\n\n- `transfer.created` \\- Triggered when a transfer to or from an account is created  \n- `transfer.updated` \\- Triggered when the status of a transfer in an account changes  \n",
+    "summary": ""
+  },
+  "servers": [
+    {
+      "url": "https://api.demo.lumanu.link/api/rest",
+      "description": "Sandbox"
+    },
+    {
+      "url": "https://api.lumanu.com/api/rest",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/payable": {
+      "get": {
+        "summary": "Get Payables",
+        "tags": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "x-stoplight": {
+                        "id": "kz5n5pbo8zak3"
+                      },
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Payable",
+                        "x-stoplight": {
+                          "id": "2s9ptybh5whdp"
+                        }
+                      },
+                      "readOnly": true
+                    },
+                    "total": {
+                      "type": "integer",
+                      "x-stoplight": {
+                        "id": "ddub2wfkf6nll"
+                      }
+                    },
+                    "limit": {
+                      "type": "integer",
+                      "x-stoplight": {
+                        "id": "rysk23lnp6mxo"
+                      }
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "x-stoplight": {
+                        "id": "daf0i93plg3m5"
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "Example 1": {
+                    "value": {
+                      "data": [
+                        {
+                          "workspace_id": "0967198e-ec7b-4c6b-b4d3-f71244cadbe9",
+                          "vendor_email": "user@example.com",
+                          "amount": 0,
+                          "description": "string",
+                          "due_date": "2019-08-24T14:15:22Z",
+                          "line_items": [
+                            {
+                              "amount": 0,
+                              "description": "string"
+                            }
+                          ]
+                        }
+                      ],
+                      "total": 0,
+                      "limit": 0,
+                      "offset": 0
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "get-payables",
+        "x-stoplight": {
+          "id": "5bxbs0iynfw84"
+        },
+        "description": "Retrieves a list of payables with optional filtering and pagination.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "description": "Number of records to return (default 25)"
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "offset",
+            "description": "Number of records to skip (default 0)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "workspace_id",
+            "description": "Filter by workspace"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "project_id",
+            "description": "Filter by project"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "order_by",
+            "description": "Field to order by"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            },
+            "in": "query",
+            "name": "order_by_direction",
+            "description": "Order direction"
+          }
+        ]
+      },
+      "parameters": []
+    }
+  },
+  "components": {
+    "schemas": {
+      "Payable": {
+        "type": "object",
+        "x-examples": {
+          "Example 1": {
+            "id": "123e4567-e89b-12d3-a456-426614174000",
+            "workspace_id": "123e4567-e89b-12d3-a456-426614174000",
+            "vendor_email": "creator@example.com",
+            "vendor_display_name": "Creator Name",
+            "vendor_status": "verified",
+            "payee_lumanu_id": "LUM123456",
+            "amount": 150000,
+            "amount_denomination": "us_cents",
+            "description": "Q2 Campaign Content Creation",
+            "due_date": "2024-04-01T00:00:00Z",
+            "invoice_number": 1001,
+            "status": "approved",
+            "payable_status": "approved",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+            "line_items": [
+              {
+                "amount": 150000,
+                "description": "Instagram Content Creation"
+              }
+            ],
+            "custom_fields": [
+              {
+                "label": "Campaign ID",
+                "type": "text",
+                "value": "CAMP-2024-Q2",
+                "policy_id": "policy-123"
+              }
+            ]
+          }
+        },
+        "required": [
+          "workspace_id",
+          "amount",
+          "description"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "x-stoplight": {
+              "id": "u3e3fy1d25scj"
+            },
+            "format": "uuid",
+            "readOnly": true
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid",
+            "readOnly": true
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "readOnly": true,
+            "description": "Project associated with the payable"
+          },
+          "vendor_status": {
+            "type": "string",
+            "x-stoplight": {
+              "id": "jgz6rfai05r6c"
+            },
+            "readOnly": true
+          },
+          "vendor_email": {
+            "type": "string",
+            "format": "email",
+            "x-stoplight": {
+              "id": "ra3pwmwagzn2y"
+            },
+            "readOnly": true
+          },
+          "vendor_display_name": {
+            "type": "string",
+            "x-stoplight": {
+              "id": "7t5absz66jw3g"
+            },
+            "readOnly": true
+          },
+          "payee_lumanu_id": {
+            "type": "string",
+            "x-stoplight": {
+              "id": "ra3pwmwagzn2z"
+            },
+            "readOnly": true
+          },
+          "amount": {
+            "type": "integer"
+          },
+          "amount_denomination": {
+            "type": "string",
+            "x-stoplight": {
+              "id": "ra3pwmwagzn2a"
+            },
+            "readOnly": true
+          },
+          "description": {
+            "type": "string"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "invoice_number": {
+            "type": "integer",
+            "x-stoplight": {
+              "id": "ra3pwmwagzn2b"
+            },
+            "readOnly": true
+          },
+          "status": {
+            "x-stoplight": {
+              "id": "ebrr9x81bwha9"
+            },
+            "enum": [
+              "approved",
+              "unapproved",
+              "canceled",
+              "will_pay",
+              "paid"
+            ],
+            "readOnly": true,
+            "description": "Payor approval intent. Returns `paid` when the payable has been fully paid."
+          },
+          "payable_status": {
+            "type": "string",
+            "enum": [
+              "not_approved",
+              "approved",
+              "scheduled",
+              "awaiting_payment",
+              "awaiting_payee",
+              "paid",
+              "canceled",
+              "reversed"
+            ],
+            "readOnly": true,
+            "description": "Full lifecycle status of the payable, accounting for payor intent, payee status, transfers, and reversals."
+          },
+          "created_at": {
+            "type": "string",
+            "x-stoplight": {
+              "id": "gdo54wzazmwy5"
+            },
+            "format": "date-time",
+            "readOnly": true
+          },
+          "updated_at": {
+            "type": "string",
+            "x-stoplight": {
+              "id": "p9eir0oyu8vc6"
+            },
+            "format": "date-time",
+            "readOnly": true
+          },
+          "line_items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "amount": {
+                  "type": "integer"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "custom_fields": {
+            "type": "array",
+            "x-stoplight": {
+              "id": "wksw0akboaq0m"
+            },
+            "items": {
+              "x-stoplight": {
+                "id": "atqfi46ugqo1c"
+              },
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "x-stoplight": {
+                    "id": "c9y5md4ma5nnl"
+                  }
+                },
+                "type": {
+                  "type": "string",
+                  "x-stoplight": {
+                    "id": "c9y5md4ma5nnm"
+                  }
+                },
+                "value": {
+                  "type": "string",
+                  "x-stoplight": {
+                    "id": "5rotc4pw1hgft"
+                  }
+                },
+                "policy_id": {
+                  "type": "string",
+                  "x-stoplight": {
+                    "id": "5rotc4pw1hgfa"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
+}

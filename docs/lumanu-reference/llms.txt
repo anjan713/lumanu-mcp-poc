@@ -1,0 +1,63 @@
+# Lumanu Documentation
+
+> Documentation for Lumanu
+
+## Guides
+- [Introduction to Lumanu](https://developers.lumanu.com/docs/intro.md)
+- [Core Concepts](https://developers.lumanu.com/docs/core-concepts.md): This page describes the core concepts and entities that are available in the Lumanu Payments API
+- [Quickstart Guide](https://developers.lumanu.com/docs/quickstart-guide.md)
+- [Why wallet-based payments?](https://developers.lumanu.com/docs/why-wallet-based-payments.md): Understand how Lumanu's wallet-based payment model differs from a traditional payout system and what changes in your integration.
+- [Migrating from Stripe Connect (Express) to Lumanu](https://developers.lumanu.com/docs/migrating-from-stripe-connect-express-to-lumanu.md)
+- [Migrating from Trolley to Lumanu](https://developers.lumanu.com/docs/migrating-from-trolley-to-lumanu.md)
+- [Migrating from Tipalti to Lumanu](https://developers.lumanu.com/docs/migrating-from-tipalti-to-lumanu.md)
+- [Lumanu vs. Stripe Connect: a technical evaluation](https://developers.lumanu.com/docs/lumanu-vs-stripe-connect-a-technical-evaluation.md): This document is for engineering leaders evaluating Lumanu against Stripe Connect for a new integration, not for teams already mid-migration. It's structured around the decisions you're actually making, not a feature checklist. We've tried to be honest about where Stripe Connect is the better choice — those cases exist, and pretending otherwise won't help you decide.  The short version: **Lumanu and Stripe Connect optimize for different problems.** Stripe Connect is built for platforms that combine charge processing and payouts (think marketplaces processing customer payments and disbursing to sellers). Lumanu is built for platforms paying recurring recipients in the marketing economy — creators, affiliates, talent, performers — where the recipient relationship spans multiple platforms over time. If your product looks like the latter, the rest of this document explains why Lumanu's structure tends to be a better fit.
+- [Flow of Funds](https://developers.lumanu.com/docs/vendor-payments.md)
+- [Vendor Onboarding](https://developers.lumanu.com/docs/vendor-onboarding.md)
+- [Pre-funding Flow](https://developers.lumanu.com/docs/pre-funding-flow.md)
+- [Post-funding flow](https://developers.lumanu.com/docs/post-funding-flow.md)
+- [Authentication](https://developers.lumanu.com/docs/authentication.md)
+- [Environments](https://developers.lumanu.com/docs/environments.md)
+- [Webhooks](https://developers.lumanu.com/docs/webhooks.md)
+
+## API Reference
+- [List Workspaces](https://developers.lumanu.com/reference/get-workspaces.md): Retrieves a list of workspaces with optional filtering and pagination.
+- [Workspace search](https://developers.lumanu.com/reference/get-workspace-search.md): Search for vendor workspaces based on name, email, or Lumanu ID. This will return a maximum of 5 results.
+- [Get Workspace](https://developers.lumanu.com/reference/get-workspace.md): Retrieves workspace details including verification status.
+- [Get Custom Field Policies](https://developers.lumanu.com/reference/get-workspace-custom-field-policies.md): Retrieves custom field policies for a workspace.
+- [Create Custom Field Policy](https://developers.lumanu.com/reference/create-workspace-custom-field-policy.md): Creates a new custom field policy for a workspace. The `unique` constraint is only applicable for `Text` type fields. The `dropdown_options` array is only applicable for `Dropdown` type fields.
+- [Update Custom Field Policy](https://developers.lumanu.com/reference/update-workspace-custom-field-policy.md): Updates an existing custom field policy. To manage dropdown options, provide the full desired list: include `id` for existing options to keep/update them, omit `id` for new options. Any existing options not included in the list will be deleted.
+- [Delete Custom Field Policy](https://developers.lumanu.com/reference/delete-workspace-custom-field-policy.md): Deletes a custom field policy.
+- [Update Workspace](https://developers.lumanu.com/reference/patch-workspace-id.md): Updates an existing workspace's information.
+- [Invite Workspace Member](https://developers.lumanu.com/reference/invite-workspace-member.md): Invites a user to join a workspace with specified roles.
+- [Subscribe to Workspace Webhooks](https://developers.lumanu.com/reference/subscribe-workspace-webhooks.md): Creates a webhook subscription for a workspace to receive event notifications.
+- [Get Workspace Wallet](https://developers.lumanu.com/reference/get-workspace-wallet.md): Retrieves the wallet account information for a workspace.
+- [List Wallet Transactions](https://developers.lumanu.com/reference/get-workspace-wallet-transactions.md): Retrieves transaction history for a workspace's wallet account.
+- [List Unlinked Deposits](https://developers.lumanu.com/reference/get-workspace-wallet-deposits.md): Retrieves a list of incoming deposits that have not yet been linked to a funding record.
+- [Create Test Deposit (Sandbox Only)](https://developers.lumanu.com/reference/post-workspace-wallet-deposits.md): Creates a test deposit in the workspace's wallet account. This endpoint is only available in the sandbox environment and is useful for testing payment flows.
+- [Get Single Payable](https://developers.lumanu.com/reference/get-payable.md): Retrieves details of a specific payable.
+- [Get Payables](https://developers.lumanu.com/reference/get-payables.md): Retrieves a list of payables with optional filtering and pagination.
+- [Create Payable](https://developers.lumanu.com/reference/create-payable.md): Creates a new payable (payment obligation) to a vendor. New payables start in draft status.
+- [Approve Payable](https://developers.lumanu.com/reference/payable-approve.md): Approves a payable for payment.
+- [Pay Payable](https://developers.lumanu.com/reference/pay-payable.md)
+- [Un-approve Payable](https://developers.lumanu.com/reference/payable-unapprove.md): Moves a payment back to the un-approved status
+- [Cancel Payable](https://developers.lumanu.com/reference/payable-cancel.md): Cancels a payable.
+- [Get an invoice PDF for a payable](https://developers.lumanu.com/reference/get-payable-pdf.md): Returns a URL of the given payable's invoice PDF
+- [List Projects](https://developers.lumanu.com/reference/get-workspace-projects.md): Retrieves a list of projects for a workspace with optional filtering and pagination.
+- [Get Project Details](https://developers.lumanu.com/reference/get-workspace-project.md): Retrieves detailed information about a specific project in a workspace, including balance information.
+- [Get Single Funding](https://developers.lumanu.com/reference/get-funding.md): Retrieves details of a specific funding record.
+- [Get Fundings](https://developers.lumanu.com/reference/get-fundings.md): Retrieves a list of funding records with optional filtering and pagination.
+- [Create Funding](https://developers.lumanu.com/reference/create-funding.md): Creates a new funding record to specify how payables will be paid.
+- [Link Funding Payment](https://developers.lumanu.com/reference/link-funding-payment.md): Links an incoming payment transaction to a funding record.
+- [Cancel Funding](https://developers.lumanu.com/reference/cancel-funding.md): Cancels a funding record.
+- [Get Funding Invoice PDF URL](https://developers.lumanu.com/reference/get-funding-pdf-url.md): Returns a URL for the funding invoice PDF.
+- [List Workspace Partners](https://developers.lumanu.com/reference/get-workspace-partners.md): Retrieves a list of partners (vendors) associated with a workspace. Supports filtering by search query and tags.
+- [Get Partner Details](https://developers.lumanu.com/reference/get-workspace-partner.md): Retrieves detailed information about a specific partner in a workspace.
+- [List Partner Invites](https://developers.lumanu.com/reference/get-workspace-partner-invites.md): Retrieves a list of partner invitations for a workspace with optional filtering by status.
+- [Invite Partners to Workspace](https://developers.lumanu.com/reference/invite-workspace-partners.md): Invites partners (vendors) to join a workspace for payment processing.
+- [Get Partner Invite Details](https://developers.lumanu.com/reference/get-workspace-partner-invite.md): Retrieves details of a specific partner invitation.
+- [Get Current User](https://developers.lumanu.com/reference/get-current-user.md): Retrieves the currently authenticated user's information.
+- [Get Current User's Workspaces](https://developers.lumanu.com/reference/get-current-user-workspaces.md): Retrieves a list of workspaces the currently authenticated user has access to.
+- [List Roles](https://developers.lumanu.com/reference/get-roles.md): Retrieves a list of all available workspace member roles.
+
+## Changelog
+- [Funding and workspace improvements](https://developers.lumanu.com/changelog/funding-and-workspace-improvements.md)

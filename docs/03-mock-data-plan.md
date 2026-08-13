@@ -79,9 +79,13 @@ audit_events
 
 There is **no `vendors` table** — Partner is a single table.
 
-Money is stored as **integer cents**, USD only. The conversion to whatever representation
-Lumanu's wire format uses belongs in the provider mapping layer, and that representation
-must be read from the harvested OpenAPI fragments rather than assumed.
+Money is stored as **integer cents**, USD only — which is exactly what Lumanu's wire format
+uses, so the provider mapping performs no monetary conversion at all. Every amount in the
+harvested schemas is an `integer` accompanied by a denomination field, and `us_cents` is
+the only value that appears anywhere in the contract; there is no decimal representation.
+The
+denomination is carried through rather than dropped, because dropping it is how an integer
+amount silently becomes ambiguous. See [docs/02](./02-official-api-sources.md#monetary-amounts).
 
 The Workspace Balance is stored on the Workspace **and** derivable from
 `balance_transactions`. The redundancy is deliberate: the stored column gives funding a
