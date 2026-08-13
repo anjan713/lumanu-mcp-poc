@@ -13,7 +13,7 @@ Account `346380392072`, checked read-only on 2026-08-13:
 | --- | --- |
 | CloudFormation stacks in us-east-1 | none |
 | Lambda functions in us-east-1 | none |
-| Secrets Manager secrets in us-east-1 | none |
+| Secrets Manager secrets in us-east-1 | none, and none planned — see ADR 0003 |
 | Existing budget | `My Monthly Cost Budget`, $100/month |
 | Spend so far this month | **$24.94** |
 
@@ -28,7 +28,7 @@ worth running once, but it is your call, not something to do silently.
 Client (Claude Code)
    │  HTTPS, bearer token
    ▼
-API Gateway  ──▶  Lambda (Node.js 20)  ──▶  Secrets Manager (+ KMS)
+API Gateway  ──▶  Lambda (Node.js 20)  ──▶  SSM Parameter Store (+ KMS)
                        │                          
                        ├──▶ CloudWatch Logs
                        └──▶ Hasura Cloud / Supabase   ← not AWS, billed separately
@@ -38,8 +38,8 @@ API Gateway  ──▶  Lambda (Node.js 20)  ──▶  Secrets Manager (+ KMS)
 | --- | --- | --- |
 | **Lambda** | Runs the MCP server. One function, invoked per request. | Requests + GB-seconds |
 | **API Gateway** | The public HTTPS endpoint, `POST /mcp`. | Requests |
-| **Secrets Manager** | Holds the Supabase URL, Hasura admin secret, Auth0 client secret. | Per secret per month + API calls |
-| **KMS** | Encrypts those secrets. Uses the AWS-managed `aws/secretsmanager` key. | Free for AWS-managed keys |
+| **SSM Parameter Store** | Holds the Supabase URL, Hasura admin secret, Auth0 client secret as `SecureString`. | Free at standard tier |
+| **KMS** | Encrypts those parameters. Uses the AWS-managed `aws/ssm` key. | Free for AWS-managed keys |
 | **CloudWatch Logs** | Receives the Pino JSON log lines. | GB ingested + GB stored |
 | **S3** | Serverless Framework's deployment bucket, holding the zipped function. | GB stored + requests |
 | **CloudFormation** | Creates all of the above from the Serverless config. | Free for AWS resource types |
@@ -56,11 +56,12 @@ own free tiers for a POC of this size, and they do not appear on the AWS bill at
 | Lambda compute | $0.0000166667 per GB-second | 400,000 GB-seconds/month |
 | API Gateway — HTTP API | $1.00 per 1M | 1M/month, 12 months |
 | API Gateway — REST API | $3.50 per 1M | 1M/month, 12 months |
-| Secrets Manager | **$0.40 per secret per month** | none |
-| Secrets Manager API calls | $0.05 per 10,000 | none |
+| SSM Parameter Store, standard | **$0.00** storage and **$0.00** API calls at standard throughput | n/a — free outright |
+| SSM Parameter Store, advanced | $0.05 per parameter per month | not used |
 | CloudWatch Logs ingestion | $0.50 per GB | 5 GB/month |
 | CloudWatch Logs storage | $0.03 per GB per month | included in the 5 GB |
 | KMS, AWS-managed key | $0.00 | n/a |
+| Secrets Manager (**not used** — see ADR 0003) | $0.40 per secret per month | none |
 | S3 storage | about $0.023 per GB per month | 5 GB, 12 months |
 
 **A caveat on the free tier.** AWS replaced the old free tier for accounts created after
@@ -82,29 +83,23 @@ under a gigabyte:
 | CloudWatch Logs (well under 5 GB) | $0.00 |
 | S3 deployment bucket (~10 MB) | $0.00 |
 | KMS (AWS-managed key) | $0.00 |
-| **Secrets Manager (3 secrets)** | **$1.20** |
-| **Total** | **about $1.20–$1.30 a month** |
+| SSM Parameter Store (3 `SecureString` parameters) | $0.00 |
+| **Total** | **about $0.01 a month, and $0.00 on the free tier** |
 
-The whole bill is Secrets Manager. Everything else in this architecture is free at this
-volume, and stays free unless traffic grows by three orders of magnitude.
+There is effectively no AWS bill. Every service in this architecture is free at this volume,
+and stays free unless traffic grows by three orders of magnitude.
 
-### Secrets Manager is the only real charge, and there are three ways to pay less
+### Why not Secrets Manager
 
-Ranked by how much they deviate from what `docs/06` and the spec already committed to:
+Secrets Manager was the original choice, and it would have been the entire AWS bill: $0.40
+per secret per month with no free tier, so about $1.20 a month against a total that is
+otherwise zero. Parameter Store standard parameters cost nothing to store and nothing to
+read at standard throughput, and `SecureString` values are KMS-encrypted exactly as Secrets
+Manager values are.
 
-1. **Three secrets, as documented — $1.20/month.** No change. Clearest to read, and each
-   secret rotates independently.
-2. **One secret holding a JSON object — $0.40/month.** The Lambda reads one secret and picks
-   three values out of it. Saves $0.80/month, costs a little clarity, and rotating one value
-   means rewriting the whole secret. This is the common pattern and I would suggest it.
-3. **SSM Parameter Store, standard tier — $0.00/month.** Standard parameters are free, and
-   `SecureString` parameters are KMS-encrypted just as Secrets Manager values are. It gives
-   up automatic rotation, which this POC does not use. This removes the AWS bill for this
-   project almost entirely, but it contradicts the stack recorded in `CLAUDE.md` and
-   `docs/06`, so it is a decision to take deliberately rather than a swap to make quietly.
-
-Recommendation: option 2. It keeps the documented service, keeps the "secrets read from AWS
-at runtime" acceptance criterion honest, and costs 40 cents a month.
+What that gives up is automatic rotation, which this POC does not use. The reasoning, and
+what it would take to move back, is in
+[ADR 0003](./adr/0003-ssm-parameter-store-rather-than-secrets-manager.md).
 
 ## What is deliberately not deployed, and what that avoids
 
@@ -124,7 +119,8 @@ These are the line items that turn a small POC into an expensive one. None of th
 
 The single most valuable line there is the NAT gateway. The decision in `docs/06` to keep the
 Lambda outside a VPC — possible only because Supabase and Hasura are reached over public
-HTTPS — is what keeps this a one-dollar project instead of a thirty-three-dollar one.
+HTTPS — is what keeps this a free project instead of a thirty-two-dollar one. It is by far
+the largest cost decision in the architecture, and it was made by not needing a VPC.
 
 ## Three traps worth setting guards against before deploying
 
@@ -178,16 +174,16 @@ npx serverless remove --stage prod --region us-east-1
 That deletes the Lambda, the API Gateway, the IAM role and the log groups. Two things survive
 on purpose and must be removed by hand if you want the cost to reach zero:
 
-- **The Secrets Manager secrets**, which are scheduled for deletion with a recovery window of
-  7–30 days and continue to bill until that window closes. `--force-delete-without-recovery`
-  removes them immediately.
+- **The SSM parameters**, which Serverless does not manage because they are created by hand
+  before the first deploy. They cost nothing, so leaving them is harmless, but
+  `aws ssm delete-parameters` removes them.
 - **The Serverless deployment bucket** in S3, which holds past deployment artefacts. Pennies,
   but it lingers.
 
 ## Summary
 
-- This POC adds roughly **$1.20 a month**, or **$0.40** if the three secrets become one.
-- Every other service is inside a free allowance at demo volume.
+- This POC adds effectively **nothing** — about a cent a month, and zero on the free tier.
+- Every service is inside a free allowance at demo volume, and Parameter Store is free outright.
 - The account already spends about **$25 a month** on something unrelated to this project.
 - The expensive mistakes — NAT gateway, RDS, provisioned concurrency — are all avoided by the
   no-VPC design already recorded in `docs/06`.

@@ -33,7 +33,8 @@ rejected.
 ## Secrets
 
 The Supabase connection string, the Hasura admin secret, and the Auth0 client secret live
-in AWS Secrets Manager with KMS-backed encryption, and are read at runtime.
+in AWS SSM Parameter Store as KMS-encrypted `SecureString` parameters, and are read at
+runtime by the Lambda execution role. See ADR 0003.
 
 Never committed: database credentials, Auth0 secrets, future Lumanu API credentials,
 private signing material. `.env.example` documents the shape with placeholder values only.

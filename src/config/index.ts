@@ -2,7 +2,7 @@
  * Runtime configuration, parsed once from the environment.
  *
  * Deployed configuration arrives as environment variables populated from AWS
- * Secrets Manager; locally it comes from a gitignored `.env`. Either way the
+ * SSM Parameter Store; locally it comes from a gitignored `.env`. Either way the
  * shape is the same, and nothing downstream reads `process.env` directly.
  */
 

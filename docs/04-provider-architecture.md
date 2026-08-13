@@ -121,7 +121,7 @@ LUMANU_PROVIDER=real
 
 Hasura is an internal data access layer only. It is never exposed to MCP clients — and
 since Hasura Cloud is a public endpoint, that is a security boundary rather than a style
-rule. The admin secret lives in AWS Secrets Manager and reaches nothing above the provider.
+rule. The admin secret lives in SSM Parameter Store and reaches nothing above the provider.
 
 Funding is the one operation Hasura cannot express as a plain mutation: it needs
 conditional validation with rollback, and a Hasura mutation cannot abort when a guard

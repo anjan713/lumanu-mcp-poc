@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@apollo/client": "^4.2.11",
+    "@aws-sdk/client-ssm": "^3.1110.0",
     "dotenv": "^17.4.2",
     "graphql": "^16.14.2",
     "pg": "^8.23.0",

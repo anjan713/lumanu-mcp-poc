@@ -123,7 +123,7 @@ Not partially implemented — a half-wired integration is worse than an absent o
 
 | Omitted | How it would be added |
 | --- | --- |
-| Doppler | Replace `.env` loading with the Doppler CLI locally; AWS already uses Secrets Manager |
+| Doppler | Replace `.env` loading with the Doppler CLI locally; AWS already uses SSM Parameter Store |
 | OpenTelemetry | Wrap tool, domain and provider calls in spans; the layering already gives clean boundaries |
 | Sentry | Initialise in the Lambda handler and attach the existing correlation id |
 | Playwright | Needs a frontend first |

@@ -272,7 +272,8 @@ Serverless Framework generating CloudFormation, deploying Lambda on the Node.js 
 runtime plus API Gateway into `us-east-1`. Stack outputs include the MCP endpoint. No
 VPC, no NAT gateway, and no AWS-hosted database: Supabase and Hasura Cloud are reached
 over public HTTPS. Secrets — the Supabase connection string, the Hasura admin secret, the
-Auth0 client secret — live in Secrets Manager with KMS-backed encryption and are read at
+Auth0 client secret — live in SSM Parameter Store as KMS-encrypted `SecureString`
+parameters under one path (ADR 0003) and are read at
 runtime.
 
 Supabase is connected via the Supavisor **session-mode** connection string on port 5432,

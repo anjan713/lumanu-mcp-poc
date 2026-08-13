@@ -52,14 +52,15 @@ direct `db.<ref>.supabase.co` host, which may be IPv6-only; and not transaction 
 - Lambda (Node.js 20)
 - IAM
 - CloudWatch
-- Secrets Manager, KMS-backed
+- SSM Parameter Store, KMS-encrypted `SecureString` (ADR 0003)
 - AWS KMS
 
 Region: `us-east-1`.
 
 What each of these costs, and how to keep the bill visible, is in
 [09 — AWS cost model](./09-aws-cost-model.md). The short version: about $1.20 a month, all
-of it Secrets Manager, because the no-VPC design avoids the NAT gateway that would otherwise
+of it Lambda and API Gateway inside their free allowances, because the no-VPC design avoids
+the NAT gateway that would otherwise
 dominate the bill.
 
 ## Infrastructure as code
@@ -117,7 +118,7 @@ named in the README with a line on how it would be added.
 
 - **Next.js / React status page** — the deliverable is an MCP URL, not a dashboard
 - **Local Docker environment** — development runs against Supabase and Hasura Cloud directly; maintaining two topologies costs more than it returns
-- **Doppler** — `.env.example` locally, Secrets Manager in AWS
+- **Doppler** — `.env.example` locally, SSM Parameter Store in AWS
 - **OpenTelemetry** — Pino structured logs carry correlation ids instead
 - **Sentry**
 - **Playwright** — there is no frontend to smoke-test
