@@ -1,0 +1,71 @@
+# --- Dependencies ---
+node_modules/
+.pnp
+.pnp.js
+
+# --- Build output ---
+dist/
+build/
+*.tsbuildinfo
+
+# --- Secrets and local config ---
+# Never commit real credentials: Supabase connection string, Hasura admin
+# secret, Auth0 client secret, AWS keys. .env.example IS committed.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.secrets/
+
+# --- Serverless Framework ---
+.serverless/
+.serverless_plugins/
+.esbuild/
+.webpack/
+
+# --- AWS ---
+.aws-sam/
+samconfig.toml
+
+# --- Hasura ---
+# Metadata and migrations ARE committed (infra/hasura). Only local CLI
+# state and resolved secrets are ignored.
+.hasura/
+hasura/config.yaml
+
+# --- Testing ---
+coverage/
+.nyc_output/
+junit.xml
+test-results/
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Editors and OS ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Agent tooling ---
+.claude/settings.local.json
+.agents/
+skills-lock.json
+
+# --- Scratch ---
+tmp/
+temp/
+scratch/
+
+.claude/
+CLAUDE.md
