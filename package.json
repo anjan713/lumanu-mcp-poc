@@ -15,7 +15,11 @@
     "test:watch": "jest --watch",
     "harvest:contract": "tsx scripts/harvest-lumanu-contract.ts",
     "generate:types": "openapi-typescript docs/lumanu-reference/openapi.json --output src/generated/lumanu-api.ts --root-types --root-types-no-schema-prefix",
-    "db:smoke": "tsx scripts/db/smoke-test.ts"
+    "db:smoke": "tsx scripts/db/smoke-test.ts",
+    "db:migrate": "tsx scripts/db/migrate.ts",
+    "db:seed": "tsx scripts/db/seed.ts",
+    "hasura:track": "tsx scripts/db/hasura-track.ts",
+    "db:reset": "tsx scripts/db/drop.ts && npm run db:migrate && npm run db:seed && npm run hasura:track"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
@@ -23,6 +27,7 @@
     "pino": "^9.5.0"
   },
   "devDependencies": {
+    "@faker-js/faker": "^9.9.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.17.6",
     "@types/pg": "^8.21.0",

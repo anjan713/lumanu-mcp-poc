@@ -27,7 +27,7 @@ Under construction. Work is tracked as eight tracer-bullet tickets in
 | --- | --- | --- |
 | 01 | Repo foundation, corrected docs, ADRs | done |
 | 02 | Lumanu contract harvested and typed | done |
-| 03 | Data layer live: Supabase, Hasura, schema, seed | not started |
+| 03 | Data layer live: Supabase, Hasura, schema, seed | done |
 | 04 | Tracer bullet: live authenticated MCP URL | not started |
 | 05 | Read tools over the canonical data | not started |
 | 06 | Payment reasoning | not started |
@@ -97,6 +97,24 @@ Three checks, in the order they can fail: Supabase reachable on the Supavisor se
 pooler, Hasura Cloud reachable with the admin secret, and — the one that matters — Hasura
 actually pointed at *that same* database, proven by reading back a row written over the
 direct connection. Hasura answering GraphQL proves only that Hasura is awake.
+
+Then build it:
+
+```bash
+npm run db:migrate     # apply db/migrations/*.sql
+npm run db:seed        # write the canonical Acme scenario
+npm run hasura:track   # track tables and relationships, export hasura/metadata.json
+npm run db:reset       # all of the above, from an empty database
+```
+
+`db:reset` is repeatable and deterministic — the same rows, byte for byte, every time — so
+a demo can be re-run after mutations. The scenario itself is data, in
+[`src/seed/canonical.ts`](./src/seed/canonical.ts), shared by the seed and (from ticket 05)
+the in-memory provider. That is why the figures a reviewer checks are tested without
+credentials.
+
+Migrations are plain SQL rather than the Hasura CLI, so no extra binary is needed;
+`hasura/metadata.json` is committed with the source connection details stripped.
 
 ## Deliberately out of scope for the one-day POC
 

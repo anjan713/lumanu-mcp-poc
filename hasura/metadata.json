@@ -1,0 +1,235 @@
+{
+  "version": 3,
+  "sources": [
+    {
+      "name": "default",
+      "kind": "postgres",
+      "tables": [
+        {
+          "table": {
+            "name": "audit_events",
+            "schema": "public"
+          }
+        },
+        {
+          "table": {
+            "name": "balance_transactions",
+            "schema": "public"
+          },
+          "object_relationships": [
+            {
+              "name": "funding",
+              "using": {
+                "foreign_key_constraint_on": "funding_id"
+              }
+            },
+            {
+              "name": "workspace",
+              "using": {
+                "foreign_key_constraint_on": "workspace_id"
+              }
+            }
+          ]
+        },
+        {
+          "table": {
+            "name": "funding_payables",
+            "schema": "public"
+          },
+          "object_relationships": [
+            {
+              "name": "funding",
+              "using": {
+                "foreign_key_constraint_on": "funding_id"
+              }
+            },
+            {
+              "name": "payable",
+              "using": {
+                "foreign_key_constraint_on": "payable_id"
+              }
+            }
+          ]
+        },
+        {
+          "table": {
+            "name": "fundings",
+            "schema": "public"
+          },
+          "object_relationships": [
+            {
+              "name": "workspace",
+              "using": {
+                "foreign_key_constraint_on": "workspace_id"
+              }
+            }
+          ],
+          "array_relationships": [
+            {
+              "name": "funding_payables",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "funding_id",
+                  "table": {
+                    "name": "funding_payables",
+                    "schema": "public"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "table": {
+            "name": "partners",
+            "schema": "public"
+          },
+          "object_relationships": [
+            {
+              "name": "workspace",
+              "using": {
+                "foreign_key_constraint_on": "workspace_id"
+              }
+            }
+          ],
+          "array_relationships": [
+            {
+              "name": "payables",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "partner_id",
+                  "table": {
+                    "name": "payables",
+                    "schema": "public"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "table": {
+            "name": "payables",
+            "schema": "public"
+          },
+          "object_relationships": [
+            {
+              "name": "partner",
+              "using": {
+                "foreign_key_constraint_on": "partner_id"
+              }
+            },
+            {
+              "name": "project",
+              "using": {
+                "foreign_key_constraint_on": "project_id"
+              }
+            },
+            {
+              "name": "workspace",
+              "using": {
+                "foreign_key_constraint_on": "workspace_id"
+              }
+            }
+          ]
+        },
+        {
+          "table": {
+            "name": "projects",
+            "schema": "public"
+          },
+          "object_relationships": [
+            {
+              "name": "workspace",
+              "using": {
+                "foreign_key_constraint_on": "workspace_id"
+              }
+            }
+          ],
+          "array_relationships": [
+            {
+              "name": "payables",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "project_id",
+                  "table": {
+                    "name": "payables",
+                    "schema": "public"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "table": {
+            "name": "workspaces",
+            "schema": "public"
+          },
+          "array_relationships": [
+            {
+              "name": "balance_transactions",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "workspace_id",
+                  "table": {
+                    "name": "balance_transactions",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "fundings",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "workspace_id",
+                  "table": {
+                    "name": "fundings",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "partners",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "workspace_id",
+                  "table": {
+                    "name": "partners",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "payables",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "workspace_id",
+                  "table": {
+                    "name": "payables",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "projects",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "workspace_id",
+                  "table": {
+                    "name": "projects",
+                    "schema": "public"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
