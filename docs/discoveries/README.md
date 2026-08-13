@@ -15,4 +15,4 @@ proving less than it claimed. Each file is self-contained.
 - [Hasura's metadata export contains the database password](./2026-08-13-hasura-export-contains-database-password.md) — the admin secret is also a Supabase credential
 - [Hasura acknowledges table tracking before the GraphQL schema is ready](./2026-08-13-hasura-acknowledges-tracking-before-the-schema-is-ready.md) — a success response that is not yet true
 - [A script that runs on import nearly let a test wipe the database](./2026-08-13-a-script-that-runs-on-import.md) — entry points must not be importable
-- [ESM-only dependencies do not load in this project's tests](./2026-08-13-esm-only-dependencies-break-the-test-run.md) — working under `tsx` is not evidence it works under Jest
+- [ESM-only dependencies do not load in this project's tests](./2026-08-13-esm-only-dependencies-break-the-test-run.md) — check the `exports` map; `require()` succeeding is not evidence

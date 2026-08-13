@@ -24,10 +24,13 @@
   "dependencies": {
     "@apollo/client": "^4.2.11",
     "@aws-sdk/client-ssm": "^3.1110.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "dotenv": "^17.4.2",
     "graphql": "^16.14.2",
+    "jose": "^5.10.0",
     "pg": "^8.23.0",
-    "pino": "^9.5.0"
+    "pino": "^9.5.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@faker-js/faker": "^9.9.0",

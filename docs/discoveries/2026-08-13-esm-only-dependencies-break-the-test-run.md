@@ -92,11 +92,50 @@ $ npm view @faker-js/faker@9.9.0  exports --json   # has "require" -> dist/index
 After downgrading, a full `db:reset` and a re-run of the determinism fingerprint confirmed
 the seed is still byte-identical run to run — just to different values than before.
 
+## Update, 2026-08-13 — the check above is not sufficient
+
+This happened a second time, with `jose`, and it defeated the rule this note originally
+gave.
+
+`jose` 6.2.8 publishes only `{ "types": ..., "default": "./dist/webapi/index.js" }` — no
+`require` condition, ESM only. But the quick check `node -e "require('jose')"` **succeeded**,
+so the package looked usable. Jest then failed on it exactly as Faker had:
+
+```
+SyntaxError: Unexpected token 'export'
+  at node_modules/jose/dist/webapi/index.js:1
+```
+
+The reason is that Node 22 and later can `require()` an ES module. The local runtime is Node
+24, so plain `require` resolves and executes it happily. Jest's CommonJS runtime is not
+Node's `require` — it has its own module registry and resolver, and it does not implement
+`require(esm)`. So the two disagree, and the more convenient check is the one that lies.
+
+Worse, the disagreement is version-dependent: on Node 20, which is what this project deploys
+to on Lambda, `require('jose')` would have failed too. The check passed only because the
+development machine is two majors ahead of the deployment target.
+
+**The reliable check is the package's `exports` map, not whether anything can load it.**
+
+```
+$ npm view <package> exports --json
+```
+
+If the `.` entry has no `require` condition, the package is ESM-only and will not load under
+ts-jest, whatever `node -e` says. `@aws-sdk/client-ssm` has no `exports` map at all and
+declares `main: ./dist-cjs/index.js`, which is also fine — the absence of an `exports` map
+means the old `main` field governs, and that points at CommonJS.
+
+`jose` is pinned to `^5` for the same reason Faker is pinned to `^9`: version 5 publishes a
+`require` condition pointing at `dist/node/cjs`, version 6 dropped it.
+
 ## Resulting decision
 
-> `@faker-js/faker` is pinned to `^9`. This project targets CommonJS, and a dependency must
-> publish a CommonJS build to be usable in the test run. Working under `tsx` is not evidence
-> that a package works under Jest.
+> `@faker-js/faker` is pinned to `^9` and `jose` to `^5`. This project targets CommonJS, and
+> a dependency must publish a CommonJS build to be usable in the test run. Neither working
+> under `tsx` nor loading under `node -e "require(...)"` is evidence that a package works
+> under Jest — on Node 22+, `require()` of an ES module succeeds where Jest still fails.
+> Check the `exports` map for a `require` condition instead.
 
 ## Related files
 
