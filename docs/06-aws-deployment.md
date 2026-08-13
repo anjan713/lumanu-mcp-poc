@@ -57,6 +57,11 @@ direct `db.<ref>.supabase.co` host, which may be IPv6-only; and not transaction 
 
 Region: `us-east-1`.
 
+What each of these costs, and how to keep the bill visible, is in
+[09 — AWS cost model](./09-aws-cost-model.md). The short version: about $1.20 a month, all
+of it Secrets Manager, because the no-VPC design avoids the NAT gateway that would otherwise
+dominate the bill.
+
 ## Infrastructure as code
 
 Serverless Framework generates CloudFormation for Lambda, API Gateway and supporting
