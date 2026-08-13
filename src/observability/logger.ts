@@ -39,6 +39,8 @@ export type LogContext = {
   readonly request_id: string;
   readonly tool_name?: string;
   readonly workspace_id?: string;
+  /** The authenticated caller, from the token's `sub`. Never the token. */
+  readonly subject?: string;
 };
 
 export function createLogger(

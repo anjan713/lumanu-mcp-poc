@@ -52,6 +52,7 @@ every other document. Then:
 | [07 — Security, observability, testing](./docs/07-security-observability-testing.md) | Auth0, secrets, logging, the two test seams |
 | [08 — Definition of done](./docs/08-definition-of-done.md) | The completion bar for the one-day build |
 | [09 — AWS cost model](./docs/09-aws-cost-model.md) | Every AWS service used, what it costs, and how to track it |
+| [10 — AWS resource register](./docs/10-aws-resource-register.md) | Every AWS resource this project creates, and how to remove it |
 
 Decisions with lasting consequences are recorded in [`docs/adr/`](./docs/adr/). Things this
 project learned the hard way — a wrong assumption, a contract that disagreed with our
