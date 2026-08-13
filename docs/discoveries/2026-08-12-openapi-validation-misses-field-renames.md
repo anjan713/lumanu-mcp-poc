@@ -10,7 +10,7 @@ required fields, and is blind to renames — which is the commonest kind of wire
 
 ## What we found
 
-Of the nine schemas harvested into `docs/lumanu-reference/openapi.json`, six declare no
+Of the nine schemas harvested into `docs/lumanu-reference/openapi.json`, seven declare no
 `required` list at all:
 
 | Schema | `required` |
@@ -76,7 +76,8 @@ Mutation testing against the committed cache, before and after the fix.
 Before: renaming `Workspace.display_name` to `displayName` in `openapi.json` left 43 of 43
 tests green.
 
-After, the same mutation fails two tests:
+After, the same mutation fails two tests — running the two contract suites alone, hence the
+40 rather than the full 54:
 
 ```
 ● the committed specification › was stitched from exactly the fragments committed beside it
