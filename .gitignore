@@ -71,3 +71,5 @@ scratch/
 CLAUDE.md
 # Lambda build artefacts
 build/
+
+.mcp.json
