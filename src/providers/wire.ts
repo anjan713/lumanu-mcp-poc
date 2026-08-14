@@ -21,11 +21,19 @@ type JsonBody<Operation> = Operation extends {
   ? Body
   : never;
 
-/** The request body one harvested operation accepts. */
-type RequestBody<Operation> = Operation extends {
-  requestBody: { content: { 'application/json': infer Body } };
-}
-  ? Body
+/**
+ * The request body one harvested operation accepts.
+ *
+ * `requestBody` is generated as optional even where the operation requires one,
+ * so the wrapper is unwrapped before the content type is matched. Written the
+ * obvious way — `requestBody: { content: ... }` — this silently resolved to
+ * `never` for every operation, which is a type that assigns to nothing and
+ * complains about nothing until something finally uses it.
+ */
+type RequestBody<Operation> = Operation extends { requestBody?: infer Wrapper }
+  ? NonNullable<Wrapper> extends { content: { 'application/json': infer Body } }
+    ? Body
+    : never
   : never;
 
 // --- Entities -------------------------------------------------------------
@@ -181,5 +189,8 @@ const CONTRACT_STILL_MATCHES: [
   Covers<PartnerStatus, (typeof PARTNER_STATUSES)[number]>,
   Covers<PayableStatus, (typeof PAYABLE_STATUSES)[number]>,
   ListPayablesResponse extends LumanuList<Payable> ? true : never,
-] = [true, true, true];
+  // A request body that resolves to `never` assigns to nothing and reports
+  // nothing, so the extraction is asserted rather than assumed.
+  CreateFundingRequest extends never ? never : true,
+] = [true, true, true, true];
 void CONTRACT_STILL_MATCHES;

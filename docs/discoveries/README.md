@@ -10,6 +10,7 @@ proving less than it claimed. Each file is self-contained.
 - [Lumanu's published contract contradicted our own documentation](./2026-08-12-lumanu-contract-contradicted-our-docs.md) — five corrections, including a false rule in the glossary
 - [The Workspace Balance is two figures, not one](./2026-08-12-workspace-balance-is-two-figures.md) — `available_balance` governs funding, not `balance`
 - [Lumanu's wire format carries almost none of the joins the tools assumed](./2026-08-13-lumanus-wire-format-carries-no-joins.md) — no `partner_id`, no status filter, no Funding on a Transaction
+- [A generated type silently resolved to `never` for five tickets](./2026-08-13-a-type-that-silently-resolved-to-never.md) — a check that cannot fail reads exactly like one that keeps passing
 
 ### The data layer
 
@@ -17,6 +18,7 @@ proving less than it claimed. Each file is self-contained.
 - [Hasura acknowledges table tracking before the GraphQL schema is ready](./2026-08-13-hasura-acknowledges-tracking-before-the-schema-is-ready.md) — a success response that is not yet true
 - [A script that runs on import nearly let a test wipe the database](./2026-08-13-a-script-that-runs-on-import.md) — entry points must not be importable
 - [ESM-only dependencies do not load in this project's tests](./2026-08-13-esm-only-dependencies-break-the-test-run.md) — check the `exports` map; `require()` succeeding is not evidence
+- [Hasura only tracks a function that returns a table](./2026-08-13-hasura-only-tracks-functions-that-return-a-table.md) — a composite return type cannot be exposed, however well-defined
 
 ### The server and its tests
 

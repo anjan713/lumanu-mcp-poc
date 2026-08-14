@@ -57,12 +57,31 @@ describe('get_partner_payment_readiness', () => {
     const result = await readiness(IDS.alex);
 
     expect(result['state']).toBe('blocked');
-    expect(result['blocker']).toMatchObject({ code: 'payable_needs_approval' });
-    // Approving is a Buyer decision here, and the resolution says so — but no
-    // tool in this server performs it yet, so `resolvable_here` must not claim
-    // one exists. Ticket 07 flips it when `approve_payable` is registered.
-    expect((result['blocker'] as { resolution: string }).resolution).toMatch(/Approve the Payable/);
-    expect(result['blocker']).toMatchObject({ resolvable_here: false });
+    // The only blocker this server can clear itself, so it is the only one that
+    // names a tool — and the tool it names must be registered.
+    expect(result['blocker']).toMatchObject({
+      code: 'payable_needs_approval',
+      resolvable_here: true,
+    });
+    expect((result['blocker'] as { resolution: string }).resolution).toMatch(/approve_payable/);
+  });
+
+  it('names only tools that are actually registered', async () => {
+    const { tools } = await (await connect()).listTools();
+    const names = new Set(tools.map((tool) => tool.name));
+
+    for (const partner of [IDS.alex, IDS.sarah]) {
+      const result = await call('explain_payment_blocker', {
+        ...WORKSPACE,
+        partner_id: partner,
+      });
+      const blocker = result['blocker'] as { resolvable_here: boolean; resolution: string };
+
+      // A resolution that claims this server can act must name a real tool.
+      if (blocker.resolvable_here) {
+        expect([...names].some((name) => blocker.resolution.includes(name))).toBe(true);
+      }
+    }
   });
 
   it('reports Sarah as blocked by onboarding, which is not fixable here', async () => {

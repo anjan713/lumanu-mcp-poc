@@ -26,6 +26,10 @@
  */
 
 import type {
+  ApprovePayableResponse,
+  CancelPayableResponse,
+  CreateFundingRequest,
+  CreateFundingResponse,
   GetPartnerResponse,
   GetPayableResponse,
   GetProjectResponse,
@@ -67,6 +71,34 @@ export interface TransactionQuery extends ListQuery {
 }
 
 export const LIST_DEFAULTS = { limit: 25, offset: 0 } as const;
+
+/**
+ * The kinds a caller can respond to differently: fix the identifier, fix the
+ * request, clear the blocking state, or wait for money. Anything outside this
+ * set is a fault rather than a refusal, and is not dressed up as one.
+ */
+export type LumanuErrorKind =
+  | 'not_found'
+  | 'invalid_input'
+  | 'invalid_state'
+  | 'insufficient_balance';
+
+/**
+ * The base every refusal shares.
+ *
+ * `kind` lives on the error rather than in a lookup table beside it, so a new
+ * subclass cannot leave a caller matching on a name it has never heard of.
+ * `detail()` carries what that kind needs a caller to act on — the amounts for
+ * a shortfall, the current state for a bad transition — for the same reason:
+ * one place decides, rather than an `instanceof` ladder at every call site.
+ */
+export abstract class LumanuError extends Error {
+  public abstract readonly kind: LumanuErrorKind;
+
+  public detail(): Record<string, unknown> {
+    return {};
+  }
+}
 
 /**
  * Lumanu publishes `order_by` as a free-form string and documents no default.
@@ -118,17 +150,88 @@ export type Collection = keyof typeof ORDERABLE_FIELDS;
  * Raised only by the single-resource reads, and distinguishable from a
  * transport failure.
  */
-export class LumanuNotFoundError extends Error {
+export class LumanuNotFoundError extends LumanuError {
   public override readonly name = 'LumanuNotFoundError';
+  public override readonly kind = 'not_found';
 
-  public constructor(resource: string, id: string) {
+  public constructor(
+    public readonly resource: string,
+    public readonly id: string,
+  ) {
     super(`No ${resource} with id ${id}`);
+  }
+
+  public override detail(): Record<string, unknown> {
+    return { resource: this.resource, id: this.id };
   }
 }
 
-/** Raised when a query asks for something no implementation can answer. */
-export class LumanuQueryError extends Error {
+/**
+ * Raised when a query asks for something no implementation can answer — an
+ * order by a field none of them holds, for instance. Malformed rather than
+ * merely unsatisfiable, so it reads as invalid input.
+ */
+export class LumanuQueryError extends LumanuError {
   public override readonly name = 'LumanuQueryError';
+  public override readonly kind = 'invalid_input';
+}
+
+/**
+ * Raised when a write asks for a transition the record's current state does not
+ * allow — approving something already funded, cancelling something already
+ * paid for, funding something nobody approved.
+ *
+ * Distinct from a not-found and from a shortfall because the responses differ:
+ * a not-found means the identifier is wrong, a shortfall means wait or add
+ * money, and this means the request was answerable but wrong to make. An agent
+ * that cannot tell them apart can only retry blindly.
+ */
+export class LumanuInvalidStateError extends LumanuError {
+  public override readonly name = 'LumanuInvalidStateError';
+  public override readonly kind = 'invalid_state';
+
+  public constructor(
+    public readonly resource: string,
+    public readonly id: string,
+    public readonly currentState: string,
+    detail: string,
+  ) {
+    super(`${resource} ${id} is ${currentState}: ${detail}`);
+  }
+
+  public override detail(): Record<string, unknown> {
+    return { resource: this.resource, id: this.id, current_state: this.currentState };
+  }
+}
+
+/** Raised when the Workspace Balance does not cover what a Funding would draw. */
+export class LumanuInsufficientBalanceError extends LumanuError {
+  public override readonly name = 'LumanuInsufficientBalanceError';
+  public override readonly kind = 'insufficient_balance';
+
+  public constructor(
+    public readonly required: number,
+    public readonly available: number,
+  ) {
+    super(
+      `Funding needs ${required} but only ${available} is available — ` +
+        `short by ${required - available}.`,
+    );
+  }
+
+  public override detail(): Record<string, unknown> {
+    return {
+      required: this.required,
+      available: this.available,
+      shortfall: this.required - this.available,
+    };
+  }
+}
+
+/** Raised when a request is malformed rather than merely unsatisfiable. */
+export class LumanuInvalidInputError extends LumanuError {
+  public override readonly name = 'LumanuInvalidInputError';
+  public override readonly kind = 'invalid_input';
 }
 
 export interface LumanuProvider {
@@ -150,6 +253,28 @@ export interface LumanuProvider {
     workspaceId: string,
     query?: TransactionQuery,
   ): Promise<ListBalanceTransactionsResponse>;
+
+  // --- Writes -------------------------------------------------------------
+  //
+  // Each validates the record's current state before acting and returns the
+  // resulting state, so a caller never has to re-read to find out what
+  // happened. Rejections arrive as the typed errors above.
+
+  approvePayable(id: string): Promise<ApprovePayableResponse>;
+  cancelPayable(id: string): Promise<CancelPayableResponse>;
+
+  /**
+   * Draws from the Workspace Balance to pay a set of approved Payables, moving
+   * each to `will_pay` and recording a Balance Transaction.
+   *
+   * All or nothing. A failure part-way must leave the balance and the Payable
+   * statuses consistent with each other — see ADR 0005 for why the mock
+   * implements this as a PostgreSQL function rather than a Hasura mutation.
+   *
+   * Idempotent by state rather than by key: a Payable already funded is a
+   * no-op, so a retried request cannot debit twice.
+   */
+  createFunding(request: CreateFundingRequest): Promise<CreateFundingResponse>;
 }
 
 /**

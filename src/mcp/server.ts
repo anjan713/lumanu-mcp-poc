@@ -22,6 +22,7 @@ import { fundingCapacity, partnerPaymentReadiness } from '@/domain/readiness';
 import { projectPaymentSummary, workspaceOverview } from '@/domain/summaries';
 import {
   LIST_DEFAULTS,
+  LumanuError,
   REACHABLE_PAYABLE_STATUSES,
   type ListQuery,
   type LumanuProvider,
@@ -42,10 +43,28 @@ export const SERVER_INFO = {
  * and the model reasons better over the exact wire shape than over prose —
  * so the Lumanu envelope is passed through rather than summarised away.
  */
-function jsonResult(value: unknown): {
-  content: Array<{ type: 'text'; text: string }>;
-} {
-  return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] };
+function jsonResult(
+  value: unknown,
+  isError = false,
+): { content: Array<{ type: 'text'; text: string }>; isError?: boolean } {
+  const content = [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }];
+
+  return isError ? { content, isError: true } : { content };
+}
+
+/**
+ * A refusal an agent can act on.
+ *
+ * The four kinds call for four different responses: a wrong identifier, a
+ * malformed request, a request that was answerable but wrong to make, and one
+ * that will succeed later when there is money. An agent given one opaque
+ * failure can only retry blindly, and retrying a write blindly is exactly what
+ * financial infrastructure must not encourage.
+ */
+function refusal(error: unknown): Record<string, unknown> | undefined {
+  if (!(error instanceof LumanuError)) return undefined;
+
+  return { kind: error.kind, message: error.message, ...error.detail() };
 }
 
 export interface ServerDependencies {
@@ -136,14 +155,25 @@ export function buildMcpServer({ provider, logger }: ServerDependencies): McpSer
         );
         return jsonResult(result);
       } catch (error) {
+        const known = refusal(error);
+
         call.error(
           {
             duration_ms: Date.now() - started,
             success: false,
             error_code: error instanceof Error ? error.name : 'UnknownError',
+            ...(known === undefined ? {} : { error_kind: known['kind'] }),
           },
           'tool failed',
         );
+
+        // A refusal is an answer, and is returned as one so the agent can read
+        // which kind it was. Anything else is a fault and is rethrown, because
+        // dressing an unexpected failure as a considered refusal would tell an
+        // agent it had been understood when it had not.
+        if (known !== undefined) {
+          return jsonResult({ error: known }, true);
+        }
         throw error;
       }
     }) as unknown as ToolCallback<Args>;
@@ -345,6 +375,52 @@ export function buildMcpServer({ provider, logger }: ServerDependencies): McpSer
       'Also reports where every Partner stands, including any with no outstanding work.',
     { workspace_id: workspaceId },
     (args) => fundingCapacity(provider, args.workspace_id),
+  );
+
+  // --- Writes ---------------------------------------------------------------
+  //
+  // Each validates the current state before acting and returns the resulting
+  // state, so an agent never has to re-read to find out what happened. A
+  // refusal names its kind.
+
+  tool(
+    'approve_payable',
+    'Approve a Payable, recording the Buyer’s decision that the work is owed and making it ' +
+      'eligible for funding. Only a Payable awaiting approval can be approved — one that has ' +
+      'already been funded or withdrawn is refused rather than silently changed.',
+    { payable_id: z.string().describe('The Payable to approve, from list_payables.') },
+    (args) => provider.approvePayable(args.payable_id),
+  );
+
+  tool(
+    'cancel_payable',
+    'Withdraw a Payable raised in error, so it is no longer owed. A Payable that has already ' +
+      'been funded cannot be withdrawn: the money has left the Workspace Balance, and ' +
+      'reversing it here would leave the balance and the record disagreeing.',
+    { payable_id: z.string().describe('The Payable to withdraw, from list_payables.') },
+    (args) => provider.cancelPayable(args.payable_id),
+  );
+
+  tool(
+    'fund_payables',
+    'Pay a set of approved Payables from the Workspace Balance, moving each to the funded ' +
+      'state and recording the movement in the balance history. All or nothing: if any ' +
+      'Payable is unapproved or withdrawn, if any Partner has not completed onboarding, or ' +
+      'if the balance does not cover the total, nothing at all is paid. Safe to retry — a ' +
+      'Payable already paid for is skipped rather than paid twice.',
+    {
+      workspace_id: workspaceId,
+      payable_ids: z
+        .array(z.string())
+        .min(1)
+        .describe('The Payables to pay. Every one must be approved and its Partner onboarded.'),
+    },
+    (args) =>
+      provider.createFunding({
+        workspace_id: args.workspace_id,
+        method: 'balance',
+        payable_ids: args.payable_ids,
+      }),
   );
 
   tool(

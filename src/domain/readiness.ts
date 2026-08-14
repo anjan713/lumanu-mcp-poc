@@ -69,12 +69,9 @@ export interface PaymentBlocker {
   readonly code: BlockerCode;
   readonly reason: string;
   /**
-   * Whether a tool **in this server** can clear it today.
-   *
-   * Currently false for all four. Approving a Payable is a Buyer decision
-   * inside this Workspace and will be resolvable here once the write tools
-   * exist; until then, saying so would send an agent looking for a tool that is
-   * not registered. `resolution` carries the distinction in the meantime.
+   * Whether a tool **in this server** can clear it. True only where one is
+   * actually registered, so an agent is never sent looking for a tool that does
+   * not exist — `resolution` names it when there is one.
    */
   readonly resolvable_here: boolean;
   readonly resolution: string;
@@ -115,14 +112,11 @@ const BLOCKERS: Record<BlockerCode, Omit<PaymentBlocker, 'code'>> = {
   },
   payable_needs_approval: {
     reason: 'The Partner’s Payable has not been approved.',
-    // The only one of the four a Buyer can clear without leaving the Workspace.
-    // Still false, because this server has no write tool yet — see the note on
-    // `resolvable_here`.
-    resolvable_here: false,
+    // The only one of the four this server can clear itself.
+    resolvable_here: true,
     resolution:
-      'Approve the Payable. This is a Buyer decision inside this Workspace, and the only ' +
-      'blocker here that does not require action elsewhere. This server cannot yet perform ' +
-      'the approval itself.',
+      'Approve the Payable with approve_payable. This is a Buyer decision inside this ' +
+      'Workspace and needs no action elsewhere.',
   },
   insufficient_balance: {
     reason: 'The Workspace Balance does not cover what is owed to this Partner.',

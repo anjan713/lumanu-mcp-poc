@@ -17,6 +17,9 @@ import { ApolloClient, HttpLink, InMemoryCache, gql, type TypedDocumentNode } fr
 import type { HasuraConfig } from '@/config';
 
 import {
+  LumanuInsufficientBalanceError,
+  LumanuInvalidInputError,
+  LumanuInvalidStateError,
   LumanuNotFoundError,
   resolveOrder,
   type Collection,
@@ -28,6 +31,8 @@ import {
 import { LIST_DEFAULTS } from './lumanu-provider';
 import {
   toAccount,
+  toFunding,
+  toNumber,
   toPartner,
   toPartnerDetail,
   toPayable,
@@ -36,6 +41,8 @@ import {
   toTransaction,
   toWorkspace,
   type AccountLike,
+  type FundingLike,
+  type Numeric,
   type PartnerLike,
   type PartnerOnPayable,
   type PayableLike,
@@ -44,6 +51,10 @@ import {
   type WorkspaceLike,
 } from './to-wire';
 import type {
+  ApprovePayableResponse,
+  CancelPayableResponse,
+  CreateFundingRequest,
+  CreateFundingResponse,
   GetPartnerResponse,
   GetPayableResponse,
   GetProjectResponse,
@@ -307,6 +318,103 @@ const LIST_TRANSACTIONS = gql`
   }
 `;
 
+// --- Write mutations -------------------------------------------------------
+//
+// Each calls a PostgreSQL function rather than a Hasura mutation, because a
+// mutation cannot abort when a guard fails and would commit a balance debit
+// whose Payable updates never happened. See ADR 0005 and migration 0002.
+
+const OUTCOME_FIELDS = `
+  outcome
+  detail
+  subject
+  state
+  required
+  available
+  funding_id
+  payable_id
+`;
+
+const APPROVE_PAYABLE = gql`
+  mutation ApprovePayable($id: uuid!) {
+    result: approve_payable(args: { p_payable_id: $id }) { ${OUTCOME_FIELDS} }
+  }
+`;
+
+const CANCEL_PAYABLE = gql`
+  mutation CancelPayable($id: uuid!) {
+    result: cancel_payable(args: { p_payable_id: $id }) { ${OUTCOME_FIELDS} }
+  }
+`;
+
+const FUND_PAYABLES = gql`
+  mutation FundPayables($workspace_id: uuid!, $payable_ids: _uuid!) {
+    result: fund_payables(args: { p_workspace_id: $workspace_id, p_payable_ids: $payable_ids }) {
+      ${OUTCOME_FIELDS}
+    }
+  }
+`;
+
+const GET_FUNDING = gql`
+  query GetFunding($id: uuid!) {
+    row: fundings_by_pk(id: $id) {
+      id
+      workspace_id
+      method
+      status
+      amount_cents
+      base_amount_cents
+      fee_amount_cents
+      fee_percent
+      is_fee_additive
+      created_at
+      updated_at
+    }
+  }
+`;
+
+/** One row of `write_outcomes`, which is a return shape rather than a table. */
+interface WriteOutcome {
+  readonly outcome: 'ok' | 'not_found' | 'invalid_input' | 'invalid_state' | 'insufficient_balance';
+  readonly detail: string | null;
+  readonly subject: string | null;
+  readonly state: string | null;
+  readonly required: Numeric;
+  readonly available: Numeric;
+  readonly funding_id: string | null;
+  readonly payable_id: string | null;
+}
+
+/**
+ * Turns the function's outcome into the same typed errors the in-memory
+ * implementation raises. This is the only place the two representations meet,
+ * and the contract suite is what proves they agree.
+ */
+function throwOn(outcome: WriteOutcome, fallbackId: string): void {
+  const id = outcome.payable_id ?? fallbackId;
+
+  switch (outcome.outcome) {
+    case 'ok':
+      return;
+    case 'not_found':
+      throw new LumanuNotFoundError(outcome.subject ?? 'Record', id);
+    case 'invalid_input':
+      throw new LumanuInvalidInputError(outcome.detail ?? 'The request was not valid.');
+    case 'invalid_state':
+      throw new LumanuInvalidStateError(
+        outcome.subject ?? 'Record',
+        id,
+        outcome.state ?? 'unknown',
+        outcome.detail ?? 'the current state does not allow this.',
+      );
+    case 'insufficient_balance':
+      throw new LumanuInsufficientBalanceError(
+        toNumber(outcome.required),
+        toNumber(outcome.available),
+      );
+  }
+}
+
 // --- Row shapes Hasura returns ---------------------------------------------
 
 interface Aggregate {
@@ -483,6 +591,72 @@ export class MockLumanuProvider implements LumanuProvider {
     });
 
     return { ...pageMeta(result, query), data: result.rows.map(toTransaction) };
+  }
+
+  // --- Writes -------------------------------------------------------------
+
+  public async approvePayable(id: string): Promise<ApprovePayableResponse> {
+    return this.transition(APPROVE_PAYABLE, 'ApprovePayable', id);
+  }
+
+  public async cancelPayable(id: string): Promise<CancelPayableResponse> {
+    return this.transition(CANCEL_PAYABLE, 'CancelPayable', id);
+  }
+
+  public async createFunding(request: CreateFundingRequest): Promise<CreateFundingResponse> {
+    if (request.method !== 'balance') {
+      throw new LumanuInvalidInputError(
+        'Only method "balance" is supported. Invoice funding is out of scope for this POC.',
+      );
+    }
+
+    const outcome = await this.write(FUND_PAYABLES, 'FundPayables', {
+      workspace_id: request.workspace_id,
+      // Hasura's `_uuid` scalar takes the Postgres array literal form.
+      payable_ids: `{${(request.payable_ids ?? []).join(',')}}`,
+    });
+    throwOn(outcome, request.workspace_id);
+
+    const funding = await this.one<FundingLike>(
+      GET_FUNDING,
+      'GetFunding',
+      'Funding',
+      outcome.funding_id ?? '',
+      { id: outcome.funding_id },
+    );
+
+    return toFunding(funding);
+  }
+
+  /**
+   * The function reports what happened; the Payable is then read back so the
+   * caller gets the resulting state rather than being told to go and look.
+   */
+  private async transition(
+    document: ReturnType<typeof gql>,
+    operation: string,
+    id: string,
+  ): Promise<GetPayableResponse> {
+    throwOn(await this.write(document, operation, { id }), id);
+
+    return this.getPayable(id);
+  }
+
+  private async write(
+    document: ReturnType<typeof gql>,
+    operation: string,
+    variables: Record<string, unknown>,
+  ): Promise<WriteOutcome> {
+    const result = await this.client.mutate<{ result: WriteOutcome[] }>({
+      mutation: document,
+      variables,
+    });
+    const [outcome] = requireData(result.data, operation).result;
+
+    if (outcome === undefined) {
+      throw new Error(`${operation} returned no outcome row.`);
+    }
+    return outcome;
   }
 
   /** Releases the underlying connections. Lambda reuses the client between invocations. */

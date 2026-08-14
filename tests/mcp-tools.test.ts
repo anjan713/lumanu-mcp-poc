@@ -29,11 +29,14 @@ function unreachableProvider(): LumanuProvider {
 }
 
 describe('the tool surface an agent sees', () => {
-  it('advertises the whole read surface', async () => {
+  it('advertises the whole surface', async () => {
     const { tools } = await (await connect()).listTools();
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
+      'approve_payable',
+      'cancel_payable',
       'explain_payment_blocker',
+      'fund_payables',
       'get_funding_capacity',
       'get_partner',
       'get_partner_payment_readiness',

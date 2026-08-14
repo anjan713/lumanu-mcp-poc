@@ -145,13 +145,15 @@ There is no state for "onboarded but owed nothing". Having nothing to pay is a r
 Partner cannot be paid, so it is the `no_payable` blocker; a state as well would report the
 same condition two different ways depending on what else happened to be wrong.
 
-### `resolvable_here` is false everywhere, for now
+### `resolvable_here` names only tools that exist
 
-It means *a tool in this server can clear this today*, and none can — the write tools arrive
-in ticket 07. Approving a Payable is the one blocker a Buyer can clear without leaving the
-Workspace, and its `resolution` says so; the boolean flips when `approve_payable` is actually
-registered. Claiming `true` beforehand would send an agent looking for a tool that is not
-there.
+It means *a tool in this server can clear this*. `payable_needs_approval` is the only one of
+the four where that is true, and its `resolution` names `approve_payable`. The other three send
+the Buyer elsewhere: the Partner submits their own tax documents, creating Payables is out of
+scope, and topping up the balance is invoice funding, also out of scope.
+
+A test asserts that any blocker claiming `resolvable_here` names a tool that is actually
+registered — the boolean was `false` throughout ticket 06 for exactly that reason.
 
 ### Readiness includes the balance; Funding Capacity does not
 
@@ -181,9 +183,21 @@ Write tools must:
 Errors are distinguishable by kind — not found, invalid input, invalid state, insufficient
 balance — so an agent can respond appropriately rather than retrying blindly.
 
+A refused write is returned as an answer rather than thrown as a fault: `isError` is set and
+the payload is `{ "error": { "kind": ..., "message": ... } }`, carrying the current state for an
+invalid transition and the required, available and shortfall figures for a shortfall. The four
+kinds call for four different responses — fix the identifier, fix the request, approve the
+Payable, add money — and one opaque failure leaves an agent with nothing to do but retry.
+
+An unexpected failure is still thrown. Dressing one as a considered refusal would tell an agent
+its request had been understood when it had not.
+
 ### Funding semantics
 
-`fund_payables` maps to Lumanu's `POST /funding` with `method: "balance"`.
+`fund_payables` maps to Lumanu's `POST /funding` with `method: "balance"`. In the mock it runs
+as a **PostgreSQL function**, not a Hasura mutation: a mutation runs its fields in one
+transaction but cannot abort, so a guard that fails leaves an already-committed balance debit
+behind. See [ADR 0005](./adr/0005-funding-is-a-postgresql-function.md).
 
 Idempotency is state-based; there is no idempotency-key subsystem:
 

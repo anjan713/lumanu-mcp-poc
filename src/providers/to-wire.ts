@@ -20,6 +20,7 @@
 
 import type {
   Account,
+  Funding,
   Partner,
   PartnerDetail,
   PartnerStatus,
@@ -267,6 +268,45 @@ export function toProject(row: ProjectLike): Project {
  */
 export function toProjectDetail(row: ProjectLike): ProjectDetail {
   return { ...toProject(row), balance: null };
+}
+
+// --- Funding --------------------------------------------------------------
+
+export interface FundingLike {
+  id: string;
+  workspace_id: string;
+  method: string;
+  status: string;
+  amount_cents: Numeric;
+  base_amount_cents?: Numeric;
+  fee_amount_cents: Numeric;
+  fee_percent: Numeric;
+  is_fee_additive?: boolean | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * `payable_ids` is absent rather than empty. Lumanu accepts it on the way in
+ * and does not document it on the way out, and inventing a response field is
+ * the drift ADR 0001 exists to prevent — the Payables a Funding paid are read
+ * back from their own `will_pay` status.
+ */
+export function toFunding(row: FundingLike): Funding {
+  return {
+    id: row.id,
+    workspace_id: row.workspace_id,
+    method: row.method as Funding['method'],
+    status: row.status,
+    amount: toNumber(row.amount_cents),
+    amount_denomination: US_CENTS,
+    fee_amount: toNumberOrNull(row.fee_amount_cents),
+    fee_percent: toNumberOrNull(row.fee_percent),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    ...optional('base_amount', toNumberOrNull(row.base_amount_cents ?? null)),
+    ...optional('is_fee_additive', row.is_fee_additive),
+  };
 }
 
 // --- Balance Transaction --------------------------------------------------

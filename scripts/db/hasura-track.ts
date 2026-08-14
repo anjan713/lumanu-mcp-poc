@@ -31,7 +31,19 @@ const TABLES = [
   'funding_payables',
   'balance_transactions',
   'audit_events',
+  // Never holds a row. Tracked because Hasura refuses to track a function that
+  // does not return a table, and the write functions need a return shape.
+  'write_outcomes',
 ];
+
+/**
+ * The write functions, exposed as GraphQL mutations.
+ *
+ * Every one is `volatile`, which is what makes Hasura expose it as a mutation
+ * rather than a query. They exist because a Hasura mutation cannot abort when a
+ * guard fails — see `db/migrations/0002_write_functions.sql` and ADR 0005.
+ */
+const FUNCTIONS = ['approve_payable', 'cancel_payable', 'fund_payables'];
 
 /** `foreign_key_constraint_on` lets Hasura derive the join from the schema. */
 type Relationship =
@@ -122,6 +134,20 @@ run(async () => {
     });
   }
   console.log(`  related  ${RELATIONSHIPS.length} relationships`);
+
+  for (const name of FUNCTIONS) {
+    await callHasura(config, '/v1/metadata', {
+      type: 'pg_track_function',
+      args: {
+        source: 'default',
+        function: { schema: 'public', name },
+        configuration: { exposed_as: 'mutation' },
+      },
+    }).catch((error: unknown) => {
+      if (!alreadyApplied(error)) throw error;
+    });
+  }
+  console.log(`  exposed  ${FUNCTIONS.length} write functions as mutations`);
 
   const exported = await callHasura(config, '/v1/metadata', {
     type: 'export_metadata',

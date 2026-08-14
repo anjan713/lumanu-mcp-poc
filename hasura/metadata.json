@@ -228,6 +228,44 @@
               }
             }
           ]
+        },
+        {
+          "table": {
+            "name": "write_outcomes",
+            "schema": "public"
+          }
+        }
+      ],
+      "functions": [
+        {
+          "function": {
+            "name": "approve_payable",
+            "schema": "public"
+          },
+          "configuration": {
+            "custom_root_fields": {},
+            "exposed_as": "mutation"
+          }
+        },
+        {
+          "function": {
+            "name": "cancel_payable",
+            "schema": "public"
+          },
+          "configuration": {
+            "custom_root_fields": {},
+            "exposed_as": "mutation"
+          }
+        },
+        {
+          "function": {
+            "name": "fund_payables",
+            "schema": "public"
+          },
+          "configuration": {
+            "custom_root_fields": {},
+            "exposed_as": "mutation"
+          }
         }
       ]
     }
