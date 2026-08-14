@@ -97,12 +97,32 @@ export const PARTNER_STATUSES = [
   'completed_w9',
 ] as const satisfies readonly PartnerStatus[];
 
+/**
+ * Every member of Lumanu's enum, `paid` included. This exists to be checked
+ * against the contract, not to be offered to anyone — see `REACHABLE_PAYABLE_STATUSES`.
+ */
 export const PAYABLE_STATUSES = [
   'unapproved',
   'approved',
   'will_pay',
   'canceled',
   'paid',
+] as const satisfies readonly PayableStatus[];
+
+/**
+ * The statuses a Payable in this POC can actually be in.
+ *
+ * `paid` is deliberately absent. It is real in Lumanu's contract — the
+ * harvested fragment confirms it — but no flow here produces it: `will_pay` is
+ * this project's funded terminal state, and settlement is evidenced by a
+ * Funding and its Balance Transaction. Anything an agent can see offers this
+ * list, so the tool surface never names a state the system cannot reach.
+ */
+export const REACHABLE_PAYABLE_STATUSES = [
+  'unapproved',
+  'approved',
+  'will_pay',
+  'canceled',
 ] as const satisfies readonly PayableStatus[];
 
 /** `true` only when `Listed` names every member of `Union`. */

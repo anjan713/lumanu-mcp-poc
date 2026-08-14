@@ -9,6 +9,7 @@ proving less than it claimed. Each file is self-contained.
 - [OpenAPI validation does not detect a renamed field](./2026-08-12-openapi-validation-misses-field-renames.md) — permissive schemas make validation a weak drift detector
 - [Lumanu's published contract contradicted our own documentation](./2026-08-12-lumanu-contract-contradicted-our-docs.md) — five corrections, including a false rule in the glossary
 - [The Workspace Balance is two figures, not one](./2026-08-12-workspace-balance-is-two-figures.md) — `available_balance` governs funding, not `balance`
+- [Lumanu's wire format carries almost none of the joins the tools assumed](./2026-08-13-lumanus-wire-format-carries-no-joins.md) — no `partner_id`, no status filter, no Funding on a Transaction
 
 ### The data layer
 
@@ -21,6 +22,7 @@ proving less than it claimed. Each file is self-contained.
 
 - [A per-request MCP server must be closed, or it leaks](./2026-08-13-a-per-request-mcp-server-must-be-closed.md) — a green suite that will not exit is a finding, not a nuisance
 - [Stubbing `fetch` did not intercept jose, and the seam was the better fix](./2026-08-13-mocking-fetch-did-not-intercept-jose.md) — `globalThis.fetch` is not a chokepoint in Node
+- [The two providers disagreed about what "not found" means for a list](./2026-08-13-two-providers-disagreed-about-not-found.md) — implementations diverge wherever the interface is silent
 
 ### Deployment
 

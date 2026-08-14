@@ -16,6 +16,10 @@ import type { LumanuProvider } from './lumanu-provider';
 import { MockLumanuProvider } from './mock';
 
 export * from './lumanu-provider';
+// Lumanu's wire vocabulary. Re-exported here so a domain service or a tool
+// names its types from the provider boundary rather than reaching past it.
+export * from './wire';
+export { US_CENTS } from './to-wire';
 export { InMemoryLumanuProvider } from './in-memory';
 export { MockLumanuProvider } from './mock';
 

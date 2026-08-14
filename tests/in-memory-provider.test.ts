@@ -1,12 +1,15 @@
 import { InMemoryLumanuProvider } from '@/providers/in-memory';
 import { LumanuNotFoundError } from '@/providers/lumanu-provider';
-import { CANONICAL } from '@/seed/canonical';
+import { CANONICAL, IDS } from '@/seed/canonical';
 
 import { describeLumanuProviderContract } from './support/provider-contract';
 
 describeLumanuProviderContract('InMemoryLumanuProvider', {
   create: () => new InMemoryLumanuProvider(),
   knownWorkspaceId: CANONICAL.workspace.id,
+  knownProjectId: CANONICAL.project.id,
+  knownPartnerId: IDS.maya,
+  knownPayableId: IDS.mayaPayable,
 });
 
 describe('InMemoryLumanuProvider specifics', () => {
@@ -29,7 +32,7 @@ describe('InMemoryLumanuProvider specifics', () => {
       ...CANONICAL.workspace,
       id: `9f8b1c34-0000-4000-8000-00000000010${index}`,
     }));
-    const provider = new InMemoryLumanuProvider(many);
+    const provider = new InMemoryLumanuProvider({ workspaces: many });
 
     const page = await provider.listWorkspaces({ limit: 2, offset: 2 });
     expect(page.total).toBe(5);
@@ -37,7 +40,7 @@ describe('InMemoryLumanuProvider specifics', () => {
   });
 
   it('reports an empty list without inventing an envelope', async () => {
-    const result = await new InMemoryLumanuProvider([]).listWorkspaces();
+    const result = await new InMemoryLumanuProvider({ workspaces: [] }).listWorkspaces();
 
     expect(result).toEqual({ data: [], total: 0, limit: 25, offset: 0 });
   });

@@ -16,6 +16,7 @@ get_payable
 get_workspace_balance
 list_workspace_transactions
 get_project_payment_summary
+list_projects
 explain_payment_blocker
 ```
 
@@ -23,6 +24,76 @@ Two names changed from the original list, because [`CONTEXT.md`](../CONTEXT.md) 
 "Wallet" as ambiguous between the Workspace Balance and a Partner's own stored-value
 account: `get_wallet_balance` → `get_workspace_balance`, and `list_wallet_transactions` →
 `list_workspace_transactions`.
+
+`list_projects` was added while building these: `get_project_payment_summary` needs a
+`project_id`, and without a way to find one an agent has to be told it.
+
+`get_partner_payment_readiness` and `explain_payment_blocker` are ticket 06 — they draw
+conclusions, where the tools above return facts.
+
+### What the tools do that the endpoints do not
+
+Three of these answer questions Lumanu has no endpoint for, and the difference is where the
+work lives. `LumanuProvider` mirrors Lumanu's endpoints exactly, including their gaps; the
+arithmetic sits above it in `src/domain`. See [ADR 0001](./adr/0001-provider-returns-lumanu-wire-format.md).
+
+| Tool | Why it is not a passthrough |
+| --- | --- |
+| `get_workspace_overview` | Four reads — Workspace, balance, Partners, Payables — reconciled into one answer. |
+| `get_project_payment_summary` | Committed, funded and outstanding are sums Lumanu does not publish. |
+| `list_payables` with `status` | **Lumanu's Payables endpoint has no status filter.** Its query parameters are `workspace_id`, `project_id`, `limit`, `offset`, `order_by` and `order_by_direction`. The filter is applied above the provider, over the whole set, so `total` describes what matched rather than the page it came from. |
+
+### What a Partner's details lose on the way out
+
+The provider returns what Lumanu returns — that fidelity is not negotiable — and the
+reduction happens at the edge, in `src/mcp/redact.ts`. The rule is need rather than
+sensitivity: a question about who is ready to be paid is answered by names and statuses, so a
+contact address in that answer is personal data spent for nothing.
+
+| Tool | Withheld | Why |
+| --- | --- | --- |
+| `list_partners` | `email`, `emails`, `notes` | The question is who the Partners are and what state they are in. |
+| `get_partner` | `notes` | A lookup of one Partner did ask for the contact address. |
+| `list_payables` | `vendor_email` | A Payable names its Partner three ways. `vendor_display_name` and `payee_lumanu_id` already identify them; without this, a page of Payables hands back every address `list_partners` had just withheld. |
+
+`notes` is withheld everywhere. It is free text a Buyer writes about a Partner, it answers no
+question this server offers, and it is the field most likely to hold something nobody meant
+to publish.
+
+### `paid` is never offered
+
+`list_payables` takes a `status`, and its enum is Lumanu's minus `paid`. The state is real in
+Lumanu's contract but no flow here produces it, so offering it would invite an agent to ask a
+question this system can only ever answer with an empty list. `PAYABLE_STATUSES` still holds
+every member, because that constant exists to be checked against the contract rather than
+shown to anyone; the tool surface uses `REACHABLE_PAYABLE_STATUSES`.
+
+### A Balance Transaction cannot name its Funding
+
+`list_workspace_transactions` was specified to have each transaction identify the Funding and
+the Partner it relates to. It does not, and cannot.
+
+Lumanu's `Transaction` schema carries nine fields: `id`, `description`, `created_at`, `amount`,
+`amount_denomination`, `balance_change`, `ending_balance`, `status` and `type`. There is no
+`funding_id`, no Partner reference, and no endpoint that lists Fundings — only
+`POST /funding` and `GET /funding/{id}`, so a correlation cannot be computed above the
+boundary either.
+
+The internal schema does hold `balance_transactions.funding_id`, so this could be published.
+It is not, because a field `RealLumanuProvider` could never produce is exactly the drift ADR
+0001 exists to prevent — the mock would answer a question the real API cannot, and the swap
+would stop being true the day it mattered.
+
+What is available is the description, which names the Partner: *"Funding — StudioX LLC"*.
+That is how the StudioX debit is identified in the history today. Correlating the two properly
+needs either a Lumanu endpoint that lists Fundings, or a `funding_id` on the Transaction.
+
+### Ordering
+
+Every list tool takes `order_by` and `order_by_direction`, defaulting to `created_at` ascending.
+The orderable fields are a closed set per collection — an unsupported one is refused rather
+than ignored, because a caller who asked for an order and silently did not get one has no way
+to notice. Ties break by `id`, so a repeated call returns a repeatable page.
 
 ## Write tools
 

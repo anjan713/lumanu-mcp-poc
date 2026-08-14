@@ -13,13 +13,31 @@
  * Lumanu's enums, Lumanu's nullability, Lumanu's `{ data, total, limit, offset }`
  * envelope. No tidier internal model exists to convert to. See ADR 0001.
  *
- * The surface grows one ticket at a time. It carries the two Workspace reads
- * the tracer bullet needs; Partners, Payables, the Workspace Balance and
- * Funding arrive in tickets 05 and 07. Adding a method here is what forces
- * every implementation to answer for it, which is the point.
+ * The method set mirrors Lumanu's endpoints one for one, including their
+ * asymmetries — Payables are scoped by a query parameter while Partners,
+ * Projects and the Workspace Balance are scoped by a path parameter. Smoothing
+ * that over would be a small kindness now and a lie when `RealLumanuProvider`
+ * arrives.
+ *
+ * What is *not* here is as deliberate: no filter by Payable status, and no
+ * derived total, readiness or capacity. Lumanu publishes no status filter, and
+ * a provider that invented one would be doing domain work at the wire boundary.
+ * Those belong in `src/domain`, computed from what these methods return.
  */
 
-import type { GetWorkspaceResponse, ListWorkspacesResponse } from './wire';
+import type {
+  GetPartnerResponse,
+  GetPayableResponse,
+  GetProjectResponse,
+  GetWorkspaceBalanceResponse,
+  GetWorkspaceResponse,
+  ListBalanceTransactionsResponse,
+  ListPartnersResponse,
+  ListPayablesResponse,
+  ListProjectsResponse,
+  ListWorkspacesResponse,
+  TransactionType,
+} from './wire';
 
 /**
  * Lumanu's list parameters, as published. `limit` defaults to 25 and `offset`
@@ -33,9 +51,73 @@ export interface ListQuery {
   readonly order_by_direction?: 'asc' | 'desc';
 }
 
+/**
+ * Payables are the one collection Lumanu does not scope by path. Its filters
+ * are `workspace_id` and `project_id` and nothing else — in particular there is
+ * no status filter, which is why `list_payables` filters above this boundary.
+ */
+export interface PayableQuery extends ListQuery {
+  readonly workspace_id?: string;
+  readonly project_id?: string;
+}
+
+/** Balance Transactions are the one collection Lumanu does filter, by type. */
+export interface TransactionQuery extends ListQuery {
+  readonly type?: TransactionType;
+}
+
 export const LIST_DEFAULTS = { limit: 25, offset: 0 } as const;
 
-/** Raised when an identifier names nothing. Distinguishable from a transport failure. */
+/**
+ * Lumanu publishes `order_by` as a free-form string and documents no default.
+ * Every implementation here sorts by `created_at` ascending unless told
+ * otherwise, so that a page from the fixture and a page from the database are
+ * the same page — without a shared default the contract suite could only
+ * compare sets, and paging assertions would be meaningless.
+ */
+export const ORDER_DEFAULTS = { order_by: 'created_at', order_by_direction: 'asc' } as const;
+
+/**
+ * The wire fields each collection may be ordered by.
+ *
+ * A closed set rather than a passthrough. `MockLumanuProvider` turns these into
+ * SQL identifiers, so accepting an arbitrary string would be both an injection
+ * surface and a promise no implementation could keep — the fixture cannot sort
+ * by a column it does not hold.
+ */
+export const ORDERABLE_FIELDS = {
+  workspaces: ['created_at', 'updated_at', 'display_name'],
+  partners: ['created_at', 'updated_at', 'name', 'status'],
+  payables: ['created_at', 'updated_at', 'amount', 'status'],
+  projects: ['created_at', 'updated_at', 'name'],
+  transactions: ['created_at', 'amount'],
+} as const satisfies Record<string, readonly string[]>;
+
+export type Collection = keyof typeof ORDERABLE_FIELDS;
+
+/**
+ * How every implementation answers an identifier that names nothing.
+ *
+ * **A single-resource read fails. A scoped list returns an empty page.**
+ *
+ * Lumanu's published contract does not settle this: of the fourteen harvested
+ * operations, only `get-workspace-partner` and `get-workspace-project` declare
+ * a 404 at all, and the rest are silent — the same permissiveness recorded in
+ * the OpenAPI drift note. So the rule is argued rather than derived.
+ *
+ * A list has a coherent empty representation and `{ data: [], total: 0 }` is a
+ * true statement about a Workspace that holds nothing. A single read has none:
+ * there is no empty Partner. Verifying the Workspace before every list would
+ * also cost a second round trip per call, in Lambda, to guard a case the domain
+ * services already catch — `workspaceOverview` reads the Workspace first, and
+ * fails there.
+ *
+ * The contract suite holds both implementations to this, which is how the two
+ * were found disagreeing about it in the first place.
+ *
+ * Raised only by the single-resource reads, and distinguishable from a
+ * transport failure.
+ */
 export class LumanuNotFoundError extends Error {
   public override readonly name = 'LumanuNotFoundError';
 
@@ -44,29 +126,94 @@ export class LumanuNotFoundError extends Error {
   }
 }
 
+/** Raised when a query asks for something no implementation can answer. */
+export class LumanuQueryError extends Error {
+  public override readonly name = 'LumanuQueryError';
+}
+
 export interface LumanuProvider {
   listWorkspaces(query?: ListQuery): Promise<ListWorkspacesResponse>;
   getWorkspace(id: string): Promise<GetWorkspaceResponse>;
+
+  listPartners(workspaceId: string, query?: ListQuery): Promise<ListPartnersResponse>;
+  getPartner(workspaceId: string, partnerId: string): Promise<GetPartnerResponse>;
+
+  listPayables(query?: PayableQuery): Promise<ListPayablesResponse>;
+  getPayable(id: string): Promise<GetPayableResponse>;
+
+  listProjects(workspaceId: string, query?: ListQuery): Promise<ListProjectsResponse>;
+  getProject(workspaceId: string, projectId: string): Promise<GetProjectResponse>;
+
+  /** The Workspace Balance. Lumanu serves it as an `Account`, not on the Workspace. */
+  getWorkspaceBalance(workspaceId: string): Promise<GetWorkspaceBalanceResponse>;
+  listBalanceTransactions(
+    workspaceId: string,
+    query?: TransactionQuery,
+  ): Promise<ListBalanceTransactionsResponse>;
 }
 
 /**
- * Applies Lumanu's paging to an already-fetched list.
+ * Checks an `order_by` against what the collection supports, and returns the
+ * ordering to apply.
+ *
+ * Rejecting an unsupported field rather than ignoring it is the same choice
+ * `loadConfig` makes about an unrecognised provider: a caller who asked for an
+ * order and silently did not get one has no way to notice.
+ */
+export function resolveOrder(
+  collection: Collection,
+  query: ListQuery | undefined,
+): { field: string; direction: 'asc' | 'desc' } {
+  const field = query?.order_by ?? ORDER_DEFAULTS.order_by;
+  const allowed: readonly string[] = ORDERABLE_FIELDS[collection];
+
+  if (!allowed.includes(field)) {
+    throw new LumanuQueryError(
+      `${collection} cannot be ordered by "${field}". Supported: ${allowed.join(', ')}.`,
+    );
+  }
+
+  return { field, direction: query?.order_by_direction ?? ORDER_DEFAULTS.order_by_direction };
+}
+
+/**
+ * Applies Lumanu's ordering and paging to an already-fetched list.
  *
  * Shared because every implementation owes callers the same envelope, and an
  * in-memory fake that paged differently from the database would make the
  * contract suite meaningless — it would pass while proving nothing.
  */
-export function paginate<Item>(
+export function orderedPage<Item extends Record<string, unknown>>(
   items: readonly Item[],
+  collection: Collection,
   query: ListQuery | undefined,
 ): { data: readonly Item[]; total: number; limit: number; offset: number } {
+  const { field, direction } = resolveOrder(collection, query);
   const limit = query?.limit ?? LIST_DEFAULTS.limit;
   const offset = query?.offset ?? LIST_DEFAULTS.offset;
 
+  const sorted = [...items].sort((left, right) => {
+    const order = compare(left[field], right[field]);
+    // Ties broken by id, so a repeated call returns a repeatable page. Without
+    // it, two records sharing a timestamp could swap between calls and page
+    // boundaries would move under the caller.
+    return (order === 0 ? compare(left['id'], right['id']) : order) * (direction === 'asc' ? 1 : -1);
+  });
+
   return {
-    data: items.slice(offset, offset + limit),
+    data: sorted.slice(offset, offset + limit),
     total: items.length,
     limit,
     offset,
   };
+}
+
+/** Nulls sort last, matching PostgreSQL's default for ascending order. */
+function compare(left: unknown, right: unknown): number {
+  if (left === right) return 0;
+  if (left === null || left === undefined) return 1;
+  if (right === null || right === undefined) return -1;
+
+  if (typeof left === 'number' && typeof right === 'number') return left - right;
+  return String(left) < String(right) ? -1 : 1;
 }

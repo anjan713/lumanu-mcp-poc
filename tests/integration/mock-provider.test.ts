@@ -13,7 +13,7 @@ import { config as loadDotenv } from 'dotenv';
 import { loadHasuraConfig } from '@/config';
 import { MockLumanuProvider } from '@/providers/mock';
 import type { LumanuProvider } from '@/providers/lumanu-provider';
-import { CANONICAL } from '@/seed/canonical';
+import { CANONICAL, IDS } from '@/seed/canonical';
 
 import { describeLumanuProviderContract } from '../support/provider-contract';
 
@@ -30,6 +30,9 @@ if (configured) {
     create: () => new MockLumanuProvider(loadHasuraConfig()),
     dispose: (provider: LumanuProvider) => (provider as MockLumanuProvider).dispose(),
     knownWorkspaceId: CANONICAL.workspace.id,
+    knownProjectId: CANONICAL.project.id,
+    knownPartnerId: IDS.maya,
+    knownPayableId: IDS.mayaPayable,
   });
 } else {
   describe('MockLumanuProvider contract', () => {
