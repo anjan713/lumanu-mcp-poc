@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "lumanu": {
+      "type": "http",
+      "url": "${LUMANU_MCP_URL:-https://<api-id>.execute-api.us-east-1.amazonaws.com/mcp}",
+      "headers": {
+        "Authorization": "Bearer ${LUMANU_TOKEN}"
+      }
+    }
+  }
+}
