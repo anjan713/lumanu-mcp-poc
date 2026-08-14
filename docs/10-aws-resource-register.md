@@ -6,7 +6,12 @@ belongs in this table.
 
 Cost is not repeated here. See [09 — AWS cost model](./09-aws-cost-model.md).
 
-**Account:** `<account-id>`  **Region:** `us-east-1`  **Stack:** `lumanu-mcp-poc-prod`
+**Account:** whichever `AWS_PROFILE` in `.env` resolves to  **Region:** `us-east-1`
+**Stack:** `lumanu-mcp-poc-prod`
+
+The account number is deliberately not written down here. `npm run deploy` and `npm run ssm:sync`
+each print it before they create anything, which is the check that matters; a number copied into a
+document only tells you what was true when someone last edited the document.
 
 **Status legend:** `planned` — designed, not created. `live` — exists in the account.
 `removed` — deleted.
@@ -19,7 +24,8 @@ each print the account before creating anything. An earlier deployment went to a
 account because `deploy.ts` did not read `.env` while the secrets script did; that stack and
 its parameters have been removed.
 
-**MCP endpoint:** `https://<api-id>.execute-api.us-east-1.amazonaws.com/mcp`
+**MCP endpoint:** a CloudFormation stack output, printed by `npm run deploy`. Kept locally as
+`LUMANU_MCP_URL` in `.env`, and not committed.
 
 ## Created by CloudFormation
 
@@ -65,7 +71,7 @@ deployed.
 | 12 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/AUTH0_DOMAIN` | Auth0 tenant domain, bare hostname — the issuer is built as `https://<domain>/` | live |
 | 13 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/AUTH0_AUDIENCE` | Auth0 API identifier | live |
 | 14 | KMS key | AWS-managed | `aws/ssm` | Encrypts the parameters above. Created by AWS on first use; free. | live |
-| 15 | S3 bucket | `AWS::S3::Bucket` | `lumanu-mcp-poc-artifacts-<account-id>-us-east-1` | Function zips, content-addressed. Created by `npm run deploy` on first run, public access blocked, **not deleted with the stack**. | live |
+| 15 | S3 bucket | `AWS::S3::Bucket` | `lumanu-mcp-poc-artifacts-<account-id>-us-east-1` | Function zips, content-addressed. Name is derived by `npm run deploy` from the resolved account and region. Created on first run, public access blocked, **not deleted with the stack**. | live |
 
 The last path segment of each parameter *is* the environment variable name the function reads
 — see `src/config/secrets.ts`. A misspelling there is not a validation error; it is a variable
@@ -149,6 +155,8 @@ aws ssm delete-parameters --region us-east-1 --names \
   /lumanu-mcp-poc/prod/AUTH0_AUDIENCE
 
 # 3. The artefact bucket, which the stack does not own. Costs pennies; check first.
+#    Substitute the account the profile resolves to:
+#      aws sts get-caller-identity --query Account --output text
 aws s3 rb s3://lumanu-mcp-poc-artifacts-<account-id>-us-east-1 --force
 ```
 
