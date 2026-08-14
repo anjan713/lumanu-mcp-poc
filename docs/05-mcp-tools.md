@@ -17,7 +17,9 @@ get_workspace_balance
 list_workspace_transactions
 get_project_payment_summary
 list_projects
+get_partner_payment_readiness
 explain_payment_blocker
+get_funding_capacity
 ```
 
 Two names changed from the original list, because [`CONTEXT.md`](../CONTEXT.md) bans bare
@@ -25,11 +27,13 @@ Two names changed from the original list, because [`CONTEXT.md`](../CONTEXT.md) 
 account: `get_wallet_balance` → `get_workspace_balance`, and `list_wallet_transactions` →
 `list_workspace_transactions`.
 
-`list_projects` was added while building these: `get_project_payment_summary` needs a
-`project_id`, and without a way to find one an agent has to be told it.
+Two were added while building: `list_projects`, because `get_project_payment_summary` needs a
+`project_id` and nothing else returns one; and `get_funding_capacity`, because Funding
+Capacity is a named concept in `CONTEXT.md` with no surface otherwise, and the point of these
+tools is that the reasoning happens once here rather than being reinvented by an agent on
+every conversation.
 
-`get_partner_payment_readiness` and `explain_payment_blocker` are ticket 06 — they draw
-conclusions, where the tools above return facts.
+The last three draw **conclusions**; everything above them returns **facts**.
 
 ### What the tools do that the endpoints do not
 
@@ -113,15 +117,55 @@ invisible to precisely the question she exists to answer.
 
 When several conditions fail, report only the **binding** one — the furthest upstream:
 
-```text
-1. Partner status is not completed_w9      → onboarding incomplete
-2. Payable is unapproved, or absent        → needs approval
-3. Workspace Balance is insufficient       → insufficient funds
-```
+| Rank | Code | Condition | Resolvable here |
+| --- | --- | --- | --- |
+| 1 | `partner_onboarding_incomplete` | Partner status is not `completed_w9` | No — the Partner submits their own tax documents |
+| 2 | `no_payable` | Nothing outstanding to fund | No — creating Payables is out of scope |
+| 2 | `payable_needs_approval` | Everything outstanding is `unapproved` | **Yes** — a Buyer decision inside the Workspace |
+| 3 | `insufficient_balance` | The balance does not cover what is owed | No — topping up is invoice funding, out of scope |
 
-Each blocker states whether a tool in this server can resolve it. Alex's can be fixed by
-`approve_payable`; Sarah's cannot be fixed here at all. "Here is what I can unblock, and
-here is what I cannot" is a better answer than four status strings.
+Ranks 2 share a rung: in both cases there is nothing approved to fund. They stay separate
+codes because the actions differ — raise a Payable, or approve the one that exists.
+
+Reporting only the binding reason is not brevity for its own sake. Clearing a downstream
+condition while an upstream one still fails changes nothing, so naming the downstream one
+sends a Buyer to do work that cannot help. Approving a Payable for a Partner who cannot
+legally be paid moves nobody closer to being paid.
+
+Each blocker states whether it can be resolved here. Alex's can; Sarah's cannot. "Here is what
+I can unblock and here is what I cannot" is a better answer than four status strings.
+
+### Three states, not two
+
+`get_partner_payment_readiness` answers `ready`, `blocked` or `already_funded`. Collapsing the
+last two into "not ready" would put StudioX — already funded, nothing wrong — in the same
+bucket as Sarah, whose onboarding is incomplete.
+
+There is no state for "onboarded but owed nothing". Having nothing to pay is a reason a
+Partner cannot be paid, so it is the `no_payable` blocker; a state as well would report the
+same condition two different ways depending on what else happened to be wrong.
+
+### `resolvable_here` is false everywhere, for now
+
+It means *a tool in this server can clear this today*, and none can — the write tools arrive
+in ticket 07. Approving a Payable is the one blocker a Buyer can clear without leaving the
+Workspace, and its `resolution` says so; the boolean flips when `approve_payable` is actually
+registered. Claiming `true` beforehand would send an agent looking for a tool that is not
+there.
+
+### Readiness includes the balance; Funding Capacity does not
+
+`get_funding_capacity` assesses each Partner on onboarding and approval **only**, and reports
+on the balance itself rather than treating it as an input to the rows.
+
+If its rows also required the balance to cover them, nothing unaffordable could ever be ready,
+the requirement could never exceed the balance, and `sufficient` would be `true` for every
+Workspace in every state — the shortfall the tool exists to report could never be reported.
+
+So one payload can show a Partner as `ready` while `sufficient` is `false`. That is not a
+contradiction: the work is ready and the money is short. Asking about that Partner alone
+returns `blocked`, because "can I pay this person right now" does include whether the money is
+there. See [the discovery note](./discoveries/2026-08-13-readiness-that-includes-the-balance-makes-capacity-vacuous.md).
 
 ## Read versus write
 

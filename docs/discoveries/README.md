@@ -24,6 +24,10 @@ proving less than it claimed. Each file is self-contained.
 - [Stubbing `fetch` did not intercept jose, and the seam was the better fix](./2026-08-13-mocking-fetch-did-not-intercept-jose.md) — `globalThis.fetch` is not a chokepoint in Node
 - [The two providers disagreed about what "not found" means for a list](./2026-08-13-two-providers-disagreed-about-not-found.md) — implementations diverge wherever the interface is silent
 
+### The domain model
+
+- [Readiness that includes the balance makes Funding Capacity unanswerable](./2026-08-13-readiness-that-includes-the-balance-makes-capacity-vacuous.md) — two definitions sharing a phrase should not share an implementation
+
 ### Deployment
 
 - [Grouping configuration by topic, not by consumer, put a database password into AWS](./2026-08-13-config-grouped-by-topic-leaked-a-secret-into-aws.md) — a mandatory config value is a stored credential

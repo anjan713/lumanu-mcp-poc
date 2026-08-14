@@ -18,6 +18,7 @@ import { z } from 'zod';
 
 import { collectAll } from '@/domain/collect';
 import { filterByStatus } from '@/domain/payables';
+import { fundingCapacity, partnerPaymentReadiness } from '@/domain/readiness';
 import { projectPaymentSummary, workspaceOverview } from '@/domain/summaries';
 import {
   LIST_DEFAULTS,
@@ -295,6 +296,55 @@ export function buildMcpServer({ provider, logger }: ServerDependencies): McpSer
       project_id: z.string().describe('The Project to summarise.'),
     },
     (args) => projectPaymentSummary(provider, args.workspace_id, args.project_id),
+  );
+
+  tool(
+    'get_partner_payment_readiness',
+    'Whether a Partner can be paid right now, and if not, the one reason that is actually ' +
+      'stopping it. Combines the Partner’s onboarding and tax status, whether their work has ' +
+      'been approved, and whether the Workspace Balance covers it — a conclusion no single ' +
+      'record holds. Answers for a Partner who has no outstanding work as well.',
+    {
+      workspace_id: workspaceId,
+      partner_id: z.string().describe('The Partner to assess, from list_partners.'),
+    },
+    (args) => partnerPaymentReadiness(provider, args.workspace_id, args.partner_id),
+  );
+
+  tool(
+    'explain_payment_blocker',
+    'Why a Partner cannot be paid, as a single binding reason rather than a list of ' +
+      'everything wrong. When several conditions fail, the one furthest upstream is ' +
+      'reported, because clearing anything downstream of it changes nothing. Each answer ' +
+      'says whether it can be resolved inside this Workspace or not.',
+    {
+      workspace_id: workspaceId,
+      partner_id: z.string().describe('The Partner to explain, from list_partners.'),
+    },
+    async (args) => {
+      const { partner_id, partner_name, state, blocker } = await partnerPaymentReadiness(
+        provider,
+        args.workspace_id,
+        args.partner_id,
+      );
+
+      // The reason and enough to know who it is about — not the amounts and
+      // the Payable evidence, which are `get_partner_payment_readiness`'s
+      // answer. Returning the whole assessment here would make the two tools
+      // the same tool under two names, and an agent choosing between them would
+      // be choosing between identical things.
+      return { partner_id, partner_name, state, blocker };
+    },
+  );
+
+  tool(
+    'get_funding_capacity',
+    'Whether the Workspace Balance covers everything that is currently ready to pay, with ' +
+      'the remainder or the shortfall stated. Only work that is genuinely ready counts ' +
+      'towards the requirement, so obligations that are still blocked do not inflate it. ' +
+      'Also reports where every Partner stands, including any with no outstanding work.',
+    { workspace_id: workspaceId },
+    (args) => fundingCapacity(provider, args.workspace_id),
   );
 
   tool(

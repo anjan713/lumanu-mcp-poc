@@ -10,26 +10,12 @@
  * that did would pass just as happily against a broken tool.
  */
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-
-import { buildMcpServer } from '@/mcp/server';
 import { InMemoryLumanuProvider } from '@/providers';
 import type { LumanuProvider } from '@/providers';
 import { CANONICAL, CURRENT_BALANCE_CENTS, dollars, IDS, OPENING_BALANCE_CENTS } from '@/seed/canonical';
 
 import { expectMatchesLumanuSchema } from './support/lumanu-schema';
-import { silentLogger } from './support/silent-logger';
-
-/** Connects a client to a server carrying the given provider. */
-async function connect(provider: LumanuProvider = new InMemoryLumanuProvider()): Promise<Client> {
-  const server = buildMcpServer({ provider, logger: silentLogger() });
-  const client = new Client({ name: 'test-client', version: '0.0.0' });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-
-  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
-  return client;
-}
+import { call, connect, payloadOf } from './support/mcp-client';
 
 /**
  * A provider whose every method fails, standing in for a data layer that is
@@ -42,21 +28,15 @@ function unreachableProvider(): LumanuProvider {
   });
 }
 
-/** The JSON a tool answered with, parsed back out of its text block. */
-function payloadOf(result: unknown): Record<string, unknown> {
-  const content = (result as { content: Array<{ type: string; text: string }> }).content;
-  const [block] = content;
-
-  expect(block?.type).toBe('text');
-  return JSON.parse(block?.text ?? '{}') as Record<string, unknown>;
-}
-
 describe('the tool surface an agent sees', () => {
   it('advertises the whole read surface', async () => {
     const { tools } = await (await connect()).listTools();
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
+      'explain_payment_blocker',
+      'get_funding_capacity',
       'get_partner',
+      'get_partner_payment_readiness',
       'get_payable',
       'get_project_payment_summary',
       'get_workspace_balance',
@@ -176,17 +156,6 @@ describe('list_workspaces', () => {
     expect((await client.listTools()).tools.length).toBeGreaterThan(0);
   });
 });
-
-/** Calls a tool and returns the JSON it answered with. */
-async function call(
-  name: string,
-  args: Record<string, unknown> = {},
-  client?: Client,
-): Promise<Record<string, unknown>> {
-  const connected = client ?? (await connect());
-
-  return payloadOf(await connected.callTool({ name, arguments: args }));
-}
 
 const WORKSPACE = { workspace_id: CANONICAL.workspace.id };
 

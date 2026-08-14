@@ -81,13 +81,28 @@ These are not Lumanu API fields. They are conclusions the domain layer reaches b
 combining Partner Status, Payable Status, and Workspace Balance.
 
 **Payment Readiness**:
-Whether a given Payable can be funded right now.
+Whether a Partner can be paid right now — their Partner Status, the approval state of what
+they are owed, and whether the Workspace Balance covers it.
+
+> Asked of a **Partner**, not a Payable. A Partner with no Payable at all is a real case
+> and an important one, and a Payable-shaped question cannot express it.
 
 **Payment Blocker**:
-The single binding reason a Payable cannot be funded right now. When more than one
-condition fails, the blocker is the one furthest upstream — an incomplete Partner Status
-outranks an unapproved Payable, which outranks an insufficient Workspace Balance.
+The single binding reason a Partner cannot be paid right now. When more than one condition
+fails, the blocker is the one furthest upstream — an incomplete Partner Status outranks
+having nothing approved to pay, which outranks an insufficient Workspace Balance.
+
+> Only the binding reason is ever given. Clearing a downstream condition while an upstream
+> one still fails changes nothing.
 
 **Funding Capacity**:
-Whether the Workspace Balance covers the total of every Payable that is currently
-ready to fund.
+Whether the Workspace Balance covers the total owed to every Partner whose Partner Status
+and Payable approval leave them ready to be paid.
+
+> Stated in terms of Partner Status and approval, and **not** in terms of Payment Readiness,
+> even though the two read alike. Payment Readiness already asks whether the balance covers
+> it, so a Funding Capacity defined over ready Partners would be asking whether the balance
+> covers what the balance covers — and could never report a shortfall.
+>
+> One consequence, which is correct rather than contradictory: a Partner can be ready for
+> Funding Capacity's purposes while not being Payment Ready, when the money is short.

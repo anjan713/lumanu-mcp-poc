@@ -17,8 +17,11 @@ import { US_CENTS, type Payable, type PayableStatus } from '@/providers';
 
 import { groupByStatus } from './group';
 
-/** Statuses that still represent money the Workspace expects to pay out. */
-const OPEN_STATUSES: readonly PayableStatus[] = ['unapproved', 'approved'];
+/**
+ * Statuses that still represent money the Workspace expects to pay out: raised
+ * and not yet funded. Neither cancelled nor already drawn from the balance.
+ */
+export const OPEN_STATUSES: readonly PayableStatus[] = ['unapproved', 'approved'];
 
 export interface StatusTotal {
   readonly status: string;
