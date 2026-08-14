@@ -67,9 +67,14 @@ tmp/
 temp/
 scratch/
 
+# The recording script. Named explicitly as well as covered by scratch/, so it
+# stays ignored if it is ever moved out of there.
+demo-script.md
+
 .claude/
 CLAUDE.md
 # Lambda build artefacts
 build/
 
 .mcp.json
+demo
