@@ -168,15 +168,27 @@ async function handleWith(
 
     // Deliberately not echoed to the caller: a configuration failure names
     // internal detail, and the client can do nothing with it. It is logged.
-    log?.error(
-      {
-        duration_ms: Date.now() - started,
-        success: false,
-        error_code: error instanceof Error ? error.name : 'UnknownError',
-        message: error instanceof Error ? error.message : String(error),
-      },
-      'request failed',
-    );
+    const failure = {
+      request_id: requestId,
+      duration_ms: Date.now() - started,
+      success: false,
+      error_code: error instanceof Error ? error.name : 'UnknownError',
+      message: error instanceof Error ? error.message : String(error),
+    };
+
+    if (log === undefined) {
+      // The runtime failed to build, so there is no configured logger to use —
+      // `logger` is one of the things `buildRuntime` returns. Falling back to
+      // stderr matters more than it looks: this is the path a missing secret,
+      // a denied SSM read or a bad provider selection takes, which makes it the
+      // likeliest failure of a fresh deployment. Logging it through `log?.` left
+      // that case answering 500 with an entirely empty log stream, and a message
+      // telling the caller to go and read the logs.
+      console.error(JSON.stringify({ level: 'error', msg: 'runtime failed to build', ...failure }));
+    } else {
+      log.error(failure, 'request failed');
+    }
+
     return jsonRpcError(500, 'Internal error. See server logs for the request id above.', requestId);
   }
 }

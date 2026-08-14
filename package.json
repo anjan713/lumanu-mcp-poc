@@ -21,6 +21,7 @@
     "hasura:track": "tsx scripts/db/hasura-track.ts",
     "db:reset": "tsx scripts/db/drop.ts && npm run db:migrate && npm run db:seed && npm run hasura:track",
     "bundle": "tsx scripts/bundle.ts",
+    "ssm:sync": "tsx scripts/ssm-sync.ts",
     "deploy": "tsx scripts/deploy.ts",
     "destroy": "aws cloudformation delete-stack --stack-name lumanu-mcp-poc-prod --region us-east-1"
   },

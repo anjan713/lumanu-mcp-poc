@@ -69,7 +69,16 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: [ssm:GetParametersByPath, ssm:GetParameters, ssm:GetParameter]
-                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmParameterPath}/*'
+                # Two ARNs, and both are needed. GetParametersByPath authorizes
+                # against the **path being queried**, which is
+                # `parameter/lumanu-mcp-poc/prod` — not against the parameters
+                # underneath it. The `/*` form alone covers GetParameter and
+                # GetParameters and denies the path read, so the deployment
+                # fails at cold start with AccessDenied on an action the policy
+                # visibly grants. Found by deploying; no local test reaches it.
+                Resource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmParameterPath}'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmParameterPath}/*'
               - Effect: Allow
                 Action: kms:Decrypt
                 Resource: !Sub 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*'

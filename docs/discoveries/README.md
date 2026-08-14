@@ -34,3 +34,4 @@ proving less than it claimed. Each file is self-contained.
 ### Deployment
 
 - [Grouping configuration by topic, not by consumer, put a database password into AWS](./2026-08-13-config-grouped-by-topic-leaked-a-secret-into-aws.md) — a mandatory config value is a stored credential
+- [`GetParametersByPath` authorizes on the path, not the parameters under it](./2026-08-14-getparametersbypath-authorizes-on-the-path.md) — and an error handler must not depend on what the failing code was building

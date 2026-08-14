@@ -6,12 +6,20 @@ belongs in this table.
 
 Cost is not repeated here. See [09 — AWS cost model](./09-aws-cost-model.md).
 
-**Account:** `346380392072`  **Region:** `us-east-1`  **Stack:** `lumanu-mcp-poc-prod`
+**Account:** `<account-id>`  **Region:** `us-east-1`  **Stack:** `lumanu-mcp-poc-prod`
 
 **Status legend:** `planned` — designed, not created. `live` — exists in the account.
 `removed` — deleted.
 
-Last verified against the account: **2026-08-13**.
+Last verified against the account: **2026-08-14**, by deploying and calling the endpoint.
+
+**The account is chosen by `AWS_PROFILE` in `.env`**, and both `npm run ssm:sync` and
+`npm run deploy` resolve it through `scripts/lib/aws-target.ts` so they cannot disagree. They
+each print the account before creating anything. An earlier deployment went to a different
+account because `deploy.ts` did not read `.env` while the secrets script did; that stack and
+its parameters have been removed.
+
+**MCP endpoint:** `https://<api-id>.execute-api.us-east-1.amazonaws.com/mcp`
 
 ## Created by CloudFormation
 
@@ -21,15 +29,15 @@ with `npm run destroy`. None of it is created by hand. The template is
 
 | # | Resource | Type | Name / identifier | Purpose | Status |
 | --- | --- | --- | --- | --- | --- |
-| 1 | CloudFormation stack | `AWS::CloudFormation::Stack` | `lumanu-mcp-poc-prod` | Holds every resource below. Deleting it deletes them. | planned |
-| 2 | Lambda function | `AWS::Lambda::Function` | `lumanu-mcp-poc-prod-mcp` | Runs the MCP server. Node.js 20 on arm64, 512 MB, 30 s timeout. | planned |
-| 3 | Lambda execution role | `AWS::IAM::Role` | `lumanu-mcp-poc-prod-lambda-role` | What the function may do: write logs, read one SSM path, decrypt via SSM only. Nothing else. | planned |
-| 4 | Lambda log group | `AWS::Logs::LogGroup` | `/aws/lambda/lumanu-mcp-poc-prod-mcp` | Pino output. **14-day retention, set explicitly** — the default is never-expire. | planned |
-| 5 | HTTP API | `AWS::ApiGatewayV2::Api` | `lumanu-mcp-poc-prod` | The public HTTPS endpoint. HTTP API, not REST — a third of the price and sufficient. | planned |
-| 6 | API route | `AWS::ApiGatewayV2::Route` | `POST /mcp` | The only route. Stateless Streamable HTTP. | planned |
-| 7 | API integration | `AWS::ApiGatewayV2::Integration` | AWS_PROXY → the function | Passes the request through unmodified. | planned |
-| 8 | API stage | `AWS::ApiGatewayV2::Stage` | `$default` | Auto-deployed. Gives the endpoint its URL. | planned |
-| 9 | Lambda permission | `AWS::Lambda::Permission` | invoke-from-apigateway | Lets the HTTP API invoke the function, and nothing else. | planned |
+| 1 | CloudFormation stack | `AWS::CloudFormation::Stack` | `lumanu-mcp-poc-prod` | Holds every resource below. Deleting it deletes them. | live |
+| 2 | Lambda function | `AWS::Lambda::Function` | `lumanu-mcp-poc-prod-mcp` | Runs the MCP server. Node.js 20 on arm64, 512 MB, 30 s timeout. | live |
+| 3 | Lambda execution role | `AWS::IAM::Role` | `lumanu-mcp-poc-prod-lambda-role` | What the function may do: write logs, read one SSM path, decrypt via SSM only. Nothing else. | live |
+| 4 | Lambda log group | `AWS::Logs::LogGroup` | `/aws/lambda/lumanu-mcp-poc-prod-mcp` | Pino output. **14-day retention, set explicitly** — the default is never-expire. | live |
+| 5 | HTTP API | `AWS::ApiGatewayV2::Api` | `lumanu-mcp-poc-prod` | The public HTTPS endpoint. HTTP API, not REST — a third of the price and sufficient. | live |
+| 6 | API route | `AWS::ApiGatewayV2::Route` | `POST /mcp` | The only route. Stateless Streamable HTTP. | live |
+| 7 | API integration | `AWS::ApiGatewayV2::Integration` | AWS_PROXY → the function | Passes the request through unmodified. | live |
+| 8 | API stage | `AWS::ApiGatewayV2::Stage` | `$default` | Auto-deployed. Gives the endpoint its URL. | live |
+| 9 | Lambda permission | `AWS::Lambda::Permission` | invoke-from-apigateway | Lets the HTTP API invoke the function, and nothing else. | live |
 
 **Not created, deliberately:** no VPC, subnets, security groups or NAT gateway; no
 authorizer resource (the token is validated inside the function, so key rotation needs no
@@ -39,19 +47,25 @@ no provisioned concurrency; no alarms.
 The absence of a VPC is the single most consequential line in this document — see the
 NAT gateway note in [09](./09-aws-cost-model.md).
 
-## Created by hand, before the first deploy
+## Created outside the stack, before the first deploy
 
-These exist outside the stack because they hold secrets and must not be readable from a
-committed template. They are created once and survive stack deletion.
+These are not in the stack because they hold secrets and must not be readable from a committed
+template. They survive stack deletion, so `npm run destroy` leaves them behind — the delete
+command is at the bottom of this document, and it is the one worth running, since the Hasura
+admin secret is here.
+
+`npm run ssm:sync` writes the four parameters from `.env`, so the values never pass through a
+shell history or a terminal. Re-running overwrites, which is also how a rotated secret is
+deployed.
 
 | # | Resource | Type | Name | Holds | Status |
 | --- | --- | --- | --- | --- | --- |
-| 10 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/HASURA_GRAPHQL_ENDPOINT` | Hasura Cloud endpoint (not secret, kept together for one read) | planned |
-| 11 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/HASURA_ADMIN_SECRET` | Hasura admin secret | planned |
-| 12 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/AUTH0_DOMAIN` | Auth0 tenant domain, bare hostname — the issuer is built as `https://<domain>/` | planned |
-| 13 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/AUTH0_AUDIENCE` | Auth0 API identifier | planned |
-| 14 | KMS key | AWS-managed | `aws/ssm` | Encrypts the parameters above. Created by AWS on first use; free. | planned |
-| 15 | S3 bucket | `AWS::S3::Bucket` | `lumanu-mcp-poc-artifacts-346380392072-us-east-1` | Function zips, content-addressed. Created by `npm run deploy` on first run, public access blocked, **not deleted with the stack**. | planned |
+| 10 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/HASURA_GRAPHQL_ENDPOINT` | Hasura Cloud endpoint (not secret, kept together for one read) | live |
+| 11 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/HASURA_ADMIN_SECRET` | Hasura admin secret | live |
+| 12 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/AUTH0_DOMAIN` | Auth0 tenant domain, bare hostname — the issuer is built as `https://<domain>/` | live |
+| 13 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/AUTH0_AUDIENCE` | Auth0 API identifier | live |
+| 14 | KMS key | AWS-managed | `aws/ssm` | Encrypts the parameters above. Created by AWS on first use; free. | live |
+| 15 | S3 bucket | `AWS::S3::Bucket` | `lumanu-mcp-poc-artifacts-<account-id>-us-east-1` | Function zips, content-addressed. Created by `npm run deploy` on first run, public access blocked, **not deleted with the stack**. | live |
 
 The last path segment of each parameter *is* the environment variable name the function reads
 — see `src/config/secrets.ts`. A misspelling there is not a validation error; it is a variable
@@ -135,7 +149,7 @@ aws ssm delete-parameters --region us-east-1 --names \
   /lumanu-mcp-poc/prod/AUTH0_AUDIENCE
 
 # 3. The artefact bucket, which the stack does not own. Costs pennies; check first.
-aws s3 rb s3://lumanu-mcp-poc-artifacts-346380392072-us-east-1 --force
+aws s3 rb s3://lumanu-mcp-poc-artifacts-<account-id>-us-east-1 --force
 ```
 
 After step 1, confirm nothing is left:

@@ -14,18 +14,29 @@
  * Teardown is `npm run destroy`, or the commands in docs/10.
  */
 
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+
+import { announceTarget, aws as runAws, awsTarget, fromEnv } from './lib/aws-target';
 
 const ROOT = path.join(__dirname, '..');
 const ZIP = path.join(ROOT, 'build', 'handler.zip');
 const TEMPLATE = path.join(ROOT, 'infra', 'cloudformation.yml');
 
 const PROJECT = 'lumanu-mcp-poc';
-const STAGE = process.env['STAGE'] ?? 'prod';
-const REGION = process.env['AWS_REGION'] ?? 'us-east-1';
+/**
+ * Resolved from `.env`, not from the surrounding shell.
+ *
+ * This script previously read neither, so `AWS_PROFILE` in `.env` — documented
+ * there as the deploy target — was ignored and the default credential chain
+ * decided the account instead. `ssm-sync.ts` did read `.env`, so the secrets and
+ * the stack that reads them could land in two different accounts. They now
+ * resolve through one module, so they cannot disagree.
+ */
+const TARGET = awsTarget();
+const STAGE = TARGET.stage;
+const REGION = TARGET.region;
 const STACK = `${PROJECT}-${STAGE}`;
 const SSM_PATH = `/${PROJECT}/${STAGE}`;
 
@@ -33,15 +44,7 @@ const SSM_PATH = `/${PROJECT}/${STAGE}`;
 const TAGS = [`project=${PROJECT}`, `stage=${STAGE}`, 'managed-by=cloudformation'];
 
 function aws(args: string[], quiet = false): string {
-  const output = execFileSync('aws', [...args, '--region', REGION], {
-    encoding: 'utf8',
-    stdio: quiet ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'pipe', 'inherit'],
-  });
-  return output.trim();
-}
-
-function accountId(): string {
-  return aws(['sts', 'get-caller-identity', '--query', 'Account', '--output', 'text'], true);
+  return runAws(TARGET, args, quiet);
 }
 
 /**
@@ -75,9 +78,7 @@ function main(): void {
   const digest = createHash('sha256').update(zip).digest('hex').slice(0, 16);
   const key = `${STAGE}/handler-${digest}.zip`;
 
-  console.log(`Deploying ${STACK} to ${REGION}\n`);
-
-  const account = accountId();
+  const account = announceTarget(TARGET, `Deploying ${STACK}`);
   const bucket = ensureArtifactBucket(account);
 
   aws(['s3', 'cp', ZIP, `s3://${bucket}/${key}`], true);
@@ -96,7 +97,7 @@ function main(): void {
     `ArtifactBucket=${bucket}`,
     `ArtifactKey=${key}`,
     `SsmParameterPath=${SSM_PATH}`,
-    `LumanuProvider=${process.env['LUMANU_PROVIDER'] ?? 'mock'}`,
+    `LumanuProvider=${fromEnv('LUMANU_PROVIDER') ?? 'mock'}`,
   ]);
 
   const outputs = JSON.parse(
