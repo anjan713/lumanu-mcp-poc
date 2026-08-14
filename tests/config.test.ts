@@ -1,4 +1,10 @@
-import { ConfigError, loadConfig, loadDataLayerConfig, loadHasuraConfig } from '@/config';
+import {
+  ConfigError,
+  loadConfig,
+  loadDataLayerConfig,
+  loadHasuraConfig,
+  loadLumanuApiConfig,
+} from '@/config';
 
 const SESSION_MODE_URL =
   'postgresql://postgres.abcdefghijklm:pw@aws-0-us-east-1.pooler.supabase.com:5432/postgres';
@@ -137,5 +143,72 @@ describe('loadDataLayerConfig', () => {
     } catch (error) {
       expect((error as Error).message).not.toContain('secret');
     }
+  });
+});
+
+describe('loadLumanuApiConfig', () => {
+  const complete = {
+    LUMANU_API_BASE_URL: 'https://api.demo.lumanu.link/api/rest',
+    LUMANU_TOKEN_URL: 'https://auth.demo.lumanu.link/oauth/token',
+    LUMANU_CLIENT_ID: 'client-id',
+    LUMANU_CLIENT_SECRET: 'client-secret',
+  };
+
+  it('reads what the real provider needs to reach Lumanu', () => {
+    const config = loadLumanuApiConfig(complete);
+
+    expect(config.baseUrl).toBe('https://api.demo.lumanu.link/api/rest');
+    expect(config.clientId).toBe('client-id');
+  });
+
+  const keys = Object.keys(complete) as Array<keyof typeof complete>;
+
+  it.each(keys)('names %s when it is missing', (key) => {
+    const { [key]: _omitted, ...rest } = complete;
+
+    expect(() => loadLumanuApiConfig(rest)).toThrow(new RegExp(key));
+  });
+
+  /**
+   * Lumanu names no Hasura or Supabase value, and must not be made to. The two
+   * loaders are separate so that selecting a provider selects its credentials
+   * and only its credentials — the same reasoning that kept the Supabase
+   * password out of AWS.
+   */
+  it('asks for nothing belonging to the mock data layer', () => {
+    expect(() => loadLumanuApiConfig(complete)).not.toThrow();
+    expect(Object.keys(loadLumanuApiConfig(complete)).sort()).toEqual([
+      'baseUrl',
+      'clientId',
+      'clientSecret',
+      'tokenUrl',
+    ]);
+  });
+
+  it('carries the audience when there is one', () => {
+    const config = loadLumanuApiConfig({ ...complete, LUMANU_AUDIENCE: 'https://acme/graphql' });
+
+    expect(config.audience).toBe('https://acme/graphql');
+  });
+
+  /**
+   * Omitted rather than present-and-undefined. The token request sends the
+   * field only when it is there, and under `exactOptionalPropertyTypes` those
+   * are two different objects.
+   */
+  it('omits the audience entirely when none is set', () => {
+    expect(loadLumanuApiConfig(complete)).not.toHaveProperty('audience');
+    expect(loadLumanuApiConfig({ ...complete, LUMANU_AUDIENCE: '' })).not.toHaveProperty(
+      'audience',
+    );
+  });
+
+  it('trims a trailing slash, so a path is never joined onto a double slash', () => {
+    const config = loadLumanuApiConfig({
+      ...complete,
+      LUMANU_API_BASE_URL: 'https://api.demo.lumanu.link/api/rest/',
+    });
+
+    expect(config.baseUrl).toBe('https://api.demo.lumanu.link/api/rest');
   });
 });

@@ -10,11 +10,19 @@
  */
 
 import { ConfigError, loadConfig } from '@/config';
-import { createProvider, MockLumanuProvider } from '@/providers';
+import { createProvider, MockLumanuProvider, RealLumanuProvider } from '@/providers';
 
 const HASURA_ONLY = {
   HASURA_GRAPHQL_ENDPOINT: 'https://acme.hasura.app/v1/graphql',
   HASURA_ADMIN_SECRET: 'secret',
+};
+
+const LUMANU_ONLY = {
+  LUMANU_PROVIDER: 'real',
+  LUMANU_API_BASE_URL: 'https://api.demo.lumanu.link/api/rest',
+  LUMANU_TOKEN_URL: 'https://auth.demo.lumanu.link/oauth/token',
+  LUMANU_CLIENT_ID: 'client-id',
+  LUMANU_CLIENT_SECRET: 'client-secret',
 };
 
 describe('createProvider', () => {
@@ -55,7 +63,30 @@ describe('createProvider', () => {
     expect(() => createProvider(loadConfig({}))).toThrow(/HASURA_ADMIN_SECRET/);
   });
 
-  it('refuses the real provider rather than silently serving mock data', () => {
-    expect(() => createProvider(loadConfig({ LUMANU_PROVIDER: 'real' }))).toThrow(/ticket 08/);
+  it('builds the real provider when it is selected', () => {
+    process.env = { ...LUMANU_ONLY };
+
+    expect(createProvider(loadConfig())).toBeInstanceOf(RealLumanuProvider);
+  });
+
+  /**
+   * The mirror of the rule above, and the reason the two configurations are
+   * separate. A deployment running against Lumanu holds Lumanu's credentials
+   * and stops holding Hasura's — otherwise selecting `real` would leave an
+   * admin secret in SSM that nothing uses, which is a stored credential
+   * protecting nothing.
+   */
+  it('asks for no Hasura credentials once it is running against Lumanu', () => {
+    process.env = { ...LUMANU_ONLY };
+
+    expect(process.env['HASURA_ADMIN_SECRET']).toBeUndefined();
+    expect(() => createProvider(loadConfig())).not.toThrow();
+  });
+
+  it('names the missing Lumanu credential rather than silently serving mock data', () => {
+    process.env = { LUMANU_PROVIDER: 'real', ...HASURA_ONLY };
+
+    expect(() => createProvider(loadConfig())).toThrow(ConfigError);
+    expect(() => createProvider(loadConfig())).toThrow(/LUMANU_/);
   });
 });

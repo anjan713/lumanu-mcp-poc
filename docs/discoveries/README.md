@@ -11,6 +11,7 @@ proving less than it claimed. Each file is self-contained.
 - [The Workspace Balance is two figures, not one](./2026-08-12-workspace-balance-is-two-figures.md) — `available_balance` governs funding, not `balance`
 - [Lumanu's wire format carries almost none of the joins the tools assumed](./2026-08-13-lumanus-wire-format-carries-no-joins.md) — no `partner_id`, no status filter, no Funding on a Transaction
 - [A generated type silently resolved to `never` for five tickets](./2026-08-13-a-type-that-silently-resolved-to-never.md) — a check that cannot fail reads exactly like one that keeps passing
+- [Lumanu publishes no error contract](./2026-08-13-lumanu-publishes-no-error-contract.md) — two of the four refusal kinds cannot be recovered from an HTTP response
 
 ### The data layer
 

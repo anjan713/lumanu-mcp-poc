@@ -99,10 +99,14 @@ client-credentials tokens. Unexercised, because no sandbox credentials are avail
 One reusable suite holds all three to the same standard:
 
 ```ts
-describeLumanuProviderContract(() => new InMemoryLumanuProvider());
-describeLumanuProviderContract(() => new MockLumanuProvider());
-describeLumanuProviderContract(() => new RealLumanuProvider());
+describeLumanuProviderContract('InMemoryLumanuProvider', { create: ... });  // always
+describeLumanuProviderContract('MockLumanuProvider', { create: ... });      // with Hasura
+describeLumanuProviderContract('RealLumanuProvider', { create: ... });      // with Lumanu
 ```
+
+Each subject says how to build the provider and what it is known to contain, and nothing
+else. There is no per-implementation assertion anywhere: the same tests run against all
+three, which is the only version of this claim worth making.
 
 This does double duty. It evidences the swap, and it is what stops the in-memory fake from
 drifting away from the provider that talks to a real database — without it, the tool tests

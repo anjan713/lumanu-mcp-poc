@@ -10,10 +10,11 @@
  * services are handed a `LumanuProvider` and cannot tell which one they hold.
  */
 
-import { loadHasuraConfig, type AppConfig } from '@/config';
+import { loadHasuraConfig, loadLumanuApiConfig, type AppConfig } from '@/config';
 
 import type { LumanuProvider } from './lumanu-provider';
 import { MockLumanuProvider } from './mock';
+import { RealLumanuProvider } from './real';
 
 export * from './lumanu-provider';
 // Lumanu's wire vocabulary. Re-exported here so a domain service or a tool
@@ -22,6 +23,7 @@ export * from './wire';
 export { US_CENTS } from './to-wire';
 export { InMemoryLumanuProvider } from './in-memory';
 export { MockLumanuProvider } from './mock';
+export { LumanuApiError, LUMANU_ROUTES, RealLumanuProvider, type HttpTransport } from './real';
 
 /**
  * Built once per Lambda container rather than once per request, so a warm
@@ -38,9 +40,11 @@ export function createProvider(config: AppConfig): LumanuProvider {
       // function must not demand a database connection string it never opens.
       return new MockLumanuProvider(loadHasuraConfig());
     case 'real':
-      throw new Error(
-        'LUMANU_PROVIDER=real is not yet implemented. RealLumanuProvider arrives in ticket 08, ' +
-          'and stays unexercised until Lumanu sandbox credentials are available.',
-      );
+      // Same reasoning in the other direction: a server running against Lumanu
+      // needs Lumanu's credentials and must not be made to hold Hasura's. The
+      // provider is a compiling skeleton — this project has no Lumanu sandbox
+      // account, so selecting it will reach Lumanu and be refused a token
+      // rather than quietly serving mock data.
+      return new RealLumanuProvider(loadLumanuApiConfig());
   }
 }

@@ -251,6 +251,17 @@ describe('the fields the provider depends on', () => {
     expect(declared).toEqual(expect.arrayContaining([...expected]));
   });
 
+  /**
+   * Guarding the guard. Lumanu declares every identifier as `format: uuid`, and
+   * a JSON Schema validator ignores unknown formats unless it has been given
+   * them — so without `ajv-formats` registered this whole file would keep
+   * passing while checking nothing about identifier shape. That failure would
+   * be silent everywhere else; here it is one red test.
+   */
+  it('enforces the identifier format Lumanu declares, rather than ignoring it', () => {
+    expect(() => expectMatchesLumanuSchema('Workspace', { id: 'workspace-1' })).toThrow(/id/);
+  });
+
   it('reports the Workspace Balance as an object of two figures, not a number', () => {
     const balance = spec.components.schemas.Account.properties.balance;
 

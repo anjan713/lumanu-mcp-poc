@@ -102,9 +102,9 @@ read tools honour Lumanu's pagination and envelope
 One reusable suite, run against every implementation:
 
 ```ts
-describeLumanuProviderContract(() => new InMemoryLumanuProvider());  // always
-describeLumanuProviderContract(() => new MockLumanuProvider());      // with credentials
-describeLumanuProviderContract(() => new RealLumanuProvider());      // skipped: no credentials
+describeLumanuProviderContract('InMemoryLumanuProvider', subject);  // always
+describeLumanuProviderContract('MockLumanuProvider', subject);      // with Hasura credentials
+describeLumanuProviderContract('RealLumanuProvider', subject);      // skipped: no Lumanu account
 ```
 
 It asserts Lumanu-shaped values: field names, snake_case, nullability, enum membership,

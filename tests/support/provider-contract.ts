@@ -28,7 +28,7 @@ import {
 } from '@/providers/lumanu-provider';
 import { dollars, IDS } from '@/seed/canonical';
 
-import { expectMatchesLumanuSchema } from './lumanu-schema';
+import { declaredEnum, expectMatchesLumanuSchema } from './lumanu-schema';
 
 const MISSING_ID = '00000000-0000-4000-8000-000000000000';
 
@@ -357,6 +357,30 @@ export function describeLumanuProviderContract(name: string, subject: ContractSu
 
         expect(Number.isInteger(payable?.amount)).toBe(true);
         expect(payable?.amount_denomination).toBe('us_cents');
+      });
+
+      /**
+       * Compared against the enum read out of the harvested fragment, not
+       * against a list written here — a hand-written expectation would only
+       * prove this file and `wire.ts` agree with each other, which is not the
+       * thing at risk.
+       *
+       * Deliberately Lumanu's **whole** enum, `paid` included, even though no
+       * flow in this POC produces it. A real sandbox may well hold a `paid`
+       * Payable, and a suite that rejected it would be holding Lumanu to this
+       * project's scope — which is the opposite of what a contract suite is
+       * for. That `paid` never reaches an agent is a property of the tool
+       * surface, and `tests/mcp-tools.test.ts` is where it is asserted.
+       */
+      it('returns only Payable statuses Lumanu publishes', async () => {
+        const published = declaredEnum('Payable', 'status') ?? [];
+        const { data } = await provider.listPayables({ workspace_id: subject.knownWorkspaceId });
+
+        expect(published.length).toBeGreaterThan(0);
+        expect(data?.length).toBeGreaterThan(0);
+        for (const payable of data ?? []) {
+          expect(published).toContain(payable.status);
+        }
       });
 
       it('filters by Project', async () => {

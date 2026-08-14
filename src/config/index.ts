@@ -46,8 +46,8 @@ export interface HasuraConfig {
 
 export function loadHasuraConfig(env: NodeJS.ProcessEnv = process.env): HasuraConfig {
   return {
-    hasuraEndpoint: required(env, 'HASURA_GRAPHQL_ENDPOINT'),
-    hasuraAdminSecret: required(env, 'HASURA_ADMIN_SECRET'),
+    hasuraEndpoint: required(env, 'HASURA_GRAPHQL_ENDPOINT', 'for the mock data layer'),
+    hasuraAdminSecret: required(env, 'HASURA_ADMIN_SECRET', 'for the mock data layer'),
   };
 }
 
@@ -67,14 +67,61 @@ export interface DataLayerConfig extends HasuraConfig {
 export function loadDataLayerConfig(env: NodeJS.ProcessEnv = process.env): DataLayerConfig {
   return {
     ...loadHasuraConfig(env),
-    databaseUrl: parseDatabaseUrl(required(env, 'SUPABASE_DB_URL')),
+    databaseUrl: parseDatabaseUrl(
+      required(env, 'SUPABASE_DB_URL', 'for the database scripts'),
+    ),
   };
 }
 
-function required(env: NodeJS.ProcessEnv, key: string): string {
+/**
+ * What `RealLumanuProvider` needs to reach Lumanu, and nothing more.
+ *
+ * Separate from `HasuraConfig` for the same reason that is separate from
+ * `DataLayerConfig`: a server running one provider must not be made to hold
+ * credentials for the other. Selecting `real` in a deployment should ask for
+ * Lumanu's credentials and stop asking for Hasura's.
+ *
+ * `baseUrl` is a published fact — the sandbox and production servers are in the
+ * harvested `servers` block. `tokenUrl` is **not**. Lumanu documents the grant
+ * (`client_credentials`) and the audience but publishes no token endpoint among
+ * the fourteen harvested pages, so it is configured rather than derived, and
+ * this is the one value here that cannot be checked against the contract.
+ */
+export interface LumanuApiConfig {
+  /** Sandbox `https://api.demo.lumanu.link/api/rest`, production `https://api.lumanu.com/api/rest`. */
+  readonly baseUrl: string;
+  readonly tokenUrl: string;
+  readonly clientId: string;
+  readonly clientSecret: string;
+  /** Lumanu's sandbox audience is `https://lumanu-demo.hasura.app/v1/graphql`. */
+  readonly audience?: string;
+}
+
+export function loadLumanuApiConfig(env: NodeJS.ProcessEnv = process.env): LumanuApiConfig {
+  const purpose = 'to reach Lumanu with LUMANU_PROVIDER=real';
+  const audience = env['LUMANU_AUDIENCE'];
+
+  return {
+    baseUrl: stripTrailingSlash(required(env, 'LUMANU_API_BASE_URL', purpose)),
+    tokenUrl: required(env, 'LUMANU_TOKEN_URL', purpose),
+    clientId: required(env, 'LUMANU_CLIENT_ID', purpose),
+    clientSecret: required(env, 'LUMANU_CLIENT_SECRET', purpose),
+    // Omitted rather than set to undefined: under exactOptionalPropertyTypes
+    // those are different things, and the token request sends the field only
+    // when there is one to send.
+    ...(audience === undefined || audience === '' ? {} : { audience }),
+  };
+}
+
+/** So that `${baseUrl}${path}` never produces a double slash. */
+function stripTrailingSlash(value: string): string {
+  return value.endsWith('/') ? value.slice(0, -1) : value;
+}
+
+function required(env: NodeJS.ProcessEnv, key: string, purpose: string): string {
   const value = env[key];
   if (value === undefined || value === '') {
-    throw new ConfigError(`${key} is required for the mock data layer, and is not set.`);
+    throw new ConfigError(`${key} is required ${purpose}, and is not set.`);
   }
   return value;
 }
