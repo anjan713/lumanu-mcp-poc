@@ -13,6 +13,10 @@
 import { callHasura, connect, run } from './connect';
 
 const TABLES_NEWEST_FIRST = [
+  // From migration 0002. Holds no rows and no foreign keys, but it is the
+  // return type of the three write functions, so `cascade` takes them with it —
+  // which is what lets 0002 re-run cleanly.
+  'write_outcomes',
   'schema_migrations',
   'audit_events',
   'balance_transactions',
