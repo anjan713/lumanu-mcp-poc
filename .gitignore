@@ -67,9 +67,9 @@ tmp/
 temp/
 scratch/
 
-# The recording script. Named explicitly as well as covered by scratch/, so it
-# stays ignored if it is ever moved out of there.
-demo-script.md
+# The recording scripts. Named explicitly as well as covered by scratch/, so
+# they stay ignored if they are ever moved out of there.
+demo-script*.md
 
 .claude/
 CLAUDE.md
