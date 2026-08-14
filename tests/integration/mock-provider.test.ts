@@ -10,7 +10,7 @@
 
 import { config as loadDotenv } from 'dotenv';
 
-import { loadDataLayerConfig } from '@/config';
+import { loadHasuraConfig } from '@/config';
 import { MockLumanuProvider } from '@/providers/mock';
 import type { LumanuProvider } from '@/providers/lumanu-provider';
 import { CANONICAL } from '@/seed/canonical';
@@ -27,7 +27,7 @@ if (configured) {
   jest.setTimeout(30_000);
 
   describeLumanuProviderContract('MockLumanuProvider', {
-    create: () => new MockLumanuProvider(loadDataLayerConfig()),
+    create: () => new MockLumanuProvider(loadHasuraConfig()),
     dispose: (provider: LumanuProvider) => (provider as MockLumanuProvider).dispose(),
     knownWorkspaceId: CANONICAL.workspace.id,
   });

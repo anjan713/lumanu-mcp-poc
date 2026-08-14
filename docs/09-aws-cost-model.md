@@ -38,7 +38,7 @@ API Gateway  ──▶  Lambda (Node.js 20)  ──▶  SSM Parameter Store (+ K
 | --- | --- | --- |
 | **Lambda** | Runs the MCP server. One function, invoked per request. | Requests + GB-seconds |
 | **API Gateway** | The public HTTPS endpoint, `POST /mcp`. | Requests |
-| **SSM Parameter Store** | Holds the Supabase URL, Hasura admin secret, Auth0 client secret as `SecureString`. | Free at standard tier |
+| **SSM Parameter Store** | Holds the Hasura endpoint and admin secret, and the Auth0 domain and audience, as `SecureString`. The Supabase connection string is deliberately not among them — see [10](./10-aws-resource-register.md). | Free at standard tier |
 | **KMS** | Encrypts those parameters. Uses the AWS-managed `aws/ssm` key. | Free for AWS-managed keys |
 | **CloudWatch Logs** | Receives the Pino JSON log lines. | GB ingested + GB stored |
 | **S3** | Artefact bucket, holding the zipped function. | GB stored + requests |
@@ -83,7 +83,7 @@ under a gigabyte:
 | CloudWatch Logs (well under 5 GB) | $0.00 |
 | S3 deployment bucket (~10 MB) | $0.00 |
 | KMS (AWS-managed key) | $0.00 |
-| SSM Parameter Store (3 `SecureString` parameters) | $0.00 |
+| SSM Parameter Store (4 `SecureString` parameters) | $0.00 |
 | **Total** | **about $0.01 a month, and $0.00 on the free tier** |
 
 There is effectively no AWS bill. Every service in this architecture is free at this volume,
@@ -174,7 +174,7 @@ aws cloudformation delete-stack --stack-name lumanu-mcp-poc-prod --region us-eas
 That deletes the Lambda, the API Gateway, the IAM role and the log groups. Two things survive
 on purpose and must be removed by hand if you want the cost to reach zero:
 
-- **The SSM parameters**, which Serverless does not manage because they are created by hand
+- **The SSM parameters**, which the stack does not own because they are created by hand
   before the first deploy. They cost nothing, so leaving them is harmless, but
   `aws ssm delete-parameters` removes them.
 - **The artefact bucket** in S3, which holds past deployment zips. Pennies, but it lingers.

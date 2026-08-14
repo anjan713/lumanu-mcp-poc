@@ -1,4 +1,4 @@
-import { ConfigError, loadConfig, loadDataLayerConfig } from '@/config';
+import { ConfigError, loadConfig, loadDataLayerConfig, loadHasuraConfig } from '@/config';
 
 const SESSION_MODE_URL =
   'postgresql://postgres.abcdefghijklm:pw@aws-0-us-east-1.pooler.supabase.com:5432/postgres';
@@ -36,6 +36,43 @@ describe('loadConfig', () => {
     const config = loadConfig({ NODE_ENV: 'production', LOG_LEVEL: 'warn' });
     expect(config.nodeEnv).toBe('production');
     expect(config.logLevel).toBe('warn');
+  });
+});
+
+describe('loadHasuraConfig', () => {
+  const complete = {
+    HASURA_GRAPHQL_ENDPOINT: 'https://acme.hasura.app/v1/graphql',
+    HASURA_ADMIN_SECRET: 'secret',
+  };
+
+  it('reads what the provider needs to reach Hasura', () => {
+    const config = loadHasuraConfig(complete);
+
+    expect(config.hasuraEndpoint).toBe('https://acme.hasura.app/v1/graphql');
+    expect(config.hasuraAdminSecret).toBe('secret');
+  });
+
+  /**
+   * The deployed MCP server reaches Hasura over GraphQL and never opens a
+   * PostgreSQL socket, so it must start without a connection string. Requiring
+   * one would put a database password in SSM to satisfy a check rather than a
+   * caller, and would fail the Lambda's cold start when it was absent.
+   */
+  it('starts without a database connection string, which it never opens', () => {
+    expect(() => loadHasuraConfig(complete)).not.toThrow();
+    expect(loadHasuraConfig(complete)).not.toHaveProperty('databaseUrl');
+  });
+
+  const keys = Object.keys(complete) as Array<keyof typeof complete>;
+
+  it.each(keys)('names %s when it is missing', (key) => {
+    const { [key]: _omitted, ...rest } = complete;
+
+    expect(() => loadHasuraConfig(rest)).toThrow(new RegExp(key));
+  });
+
+  it('treats an empty value as missing rather than connecting to nothing', () => {
+    expect(() => loadHasuraConfig({ ...complete, HASURA_ADMIN_SECRET: '' })).toThrow(ConfigError);
   });
 });
 

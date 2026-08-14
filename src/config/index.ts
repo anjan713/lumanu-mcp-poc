@@ -30,23 +30,44 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 }
 
 /**
- * Where the mock's data actually lives. Separate from `AppConfig` because
- * only `MockLumanuProvider` and the database scripts need it: the MCP server
- * running against `RealLumanuProvider` has no database at all, and should not
- * fail to start over a connection string it will never open.
+ * What `MockLumanuProvider` needs, and nothing more. It reaches the seeded data
+ * over GraphQL and never opens a PostgreSQL socket, so it must be able to start
+ * without a connection string — otherwise the deployed function would demand a
+ * database password in SSM to satisfy a check rather than a caller, and would
+ * fail its cold start when that password was rightly absent.
+ *
+ * Separate from `AppConfig` because a server running `RealLumanuProvider` needs
+ * no Hasura credentials either.
  */
-export interface DataLayerConfig {
-  /** Supabase, via the Supavisor session-mode pooler. */
-  readonly databaseUrl: string;
+export interface HasuraConfig {
   readonly hasuraEndpoint: string;
   readonly hasuraAdminSecret: string;
 }
 
-export function loadDataLayerConfig(env: NodeJS.ProcessEnv = process.env): DataLayerConfig {
+export function loadHasuraConfig(env: NodeJS.ProcessEnv = process.env): HasuraConfig {
   return {
-    databaseUrl: parseDatabaseUrl(required(env, 'SUPABASE_DB_URL')),
     hasuraEndpoint: required(env, 'HASURA_GRAPHQL_ENDPOINT'),
     hasuraAdminSecret: required(env, 'HASURA_ADMIN_SECRET'),
+  };
+}
+
+/**
+ * The above, plus direct access to the database underneath it.
+ *
+ * Only the `scripts/db/*` tools load this: migrating, seeding and smoke-testing
+ * all speak SQL, which Hasura deliberately does not expose. Those scripts run
+ * from a developer machine against a gitignored `.env`, which is why the
+ * connection string never has to reach the deployed environment.
+ */
+export interface DataLayerConfig extends HasuraConfig {
+  /** Supabase, via the Supavisor session-mode pooler. */
+  readonly databaseUrl: string;
+}
+
+export function loadDataLayerConfig(env: NodeJS.ProcessEnv = process.env): DataLayerConfig {
+  return {
+    ...loadHasuraConfig(env),
+    databaseUrl: parseDatabaseUrl(required(env, 'SUPABASE_DB_URL')),
   };
 }
 

@@ -14,7 +14,7 @@
 
 import { ApolloClient, HttpLink, InMemoryCache, gql } from '@apollo/client';
 
-import type { DataLayerConfig } from '@/config';
+import type { HasuraConfig } from '@/config';
 
 import {
   LumanuNotFoundError,
@@ -125,7 +125,7 @@ function toWorkspace(record: WorkspaceRecord): Workspace {
 export class MockLumanuProvider implements LumanuProvider {
   private readonly client: ApolloClient;
 
-  public constructor(config: DataLayerConfig) {
+  public constructor(config: HasuraConfig) {
     this.client = new ApolloClient({
       link: new HttpLink({
         uri: new URL('/v1/graphql', config.hasuraEndpoint).toString(),

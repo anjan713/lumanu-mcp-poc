@@ -27,7 +27,7 @@ committed?" gets the same answer either way.
 Parameter Store cannot. This POC rotates nothing — the Supabase and Hasura credentials are
 long-lived and rotated by hand at the vendor — so the feature we are giving up is one we
 were never going to use. If rotation becomes a requirement, moving back is a change to one
-module and one IAM policy, because nothing above `loadDataLayerConfig` knows where the values
+module and one IAM policy, because nothing above `loadHasuraConfig` knows where the values
 came from.
 
 **Cross-account sharing and resource policies.** Secrets Manager supports both; Parameter

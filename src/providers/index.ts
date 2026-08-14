@@ -10,7 +10,7 @@
  * services are handed a `LumanuProvider` and cannot tell which one they hold.
  */
 
-import { loadDataLayerConfig, type AppConfig } from '@/config';
+import { loadHasuraConfig, type AppConfig } from '@/config';
 
 import type { LumanuProvider } from './lumanu-provider';
 import { MockLumanuProvider } from './mock';
@@ -28,9 +28,11 @@ export { MockLumanuProvider } from './mock';
 export function createProvider(config: AppConfig): LumanuProvider {
   switch (config.provider) {
     case 'mock':
-      // The data-layer configuration is read here rather than at startup, so
-      // a server running against `real` never needs Hasura credentials.
-      return new MockLumanuProvider(loadDataLayerConfig());
+      // Read here rather than at startup, so a server running against `real`
+      // never needs Hasura credentials. Deliberately `loadHasuraConfig` and not
+      // `loadDataLayerConfig`: this provider speaks GraphQL, so the deployed
+      // function must not demand a database connection string it never opens.
+      return new MockLumanuProvider(loadHasuraConfig());
     case 'real':
       throw new Error(
         'LUMANU_PROVIDER=real is not yet implemented. RealLumanuProvider arrives in ticket 08, ' +

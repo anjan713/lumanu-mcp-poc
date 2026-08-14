@@ -46,13 +46,33 @@ committed template. They are created once and survive stack deletion.
 
 | # | Resource | Type | Name | Holds | Status |
 | --- | --- | --- | --- | --- | --- |
-| 10 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/SUPABASE_DB_URL` | Supavisor session-mode connection string | planned |
-| 11 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/HASURA_GRAPHQL_ENDPOINT` | Hasura Cloud endpoint (not secret, kept together for one read) | planned |
-| 12 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/HASURA_ADMIN_SECRET` | Hasura admin secret | planned |
-| 13 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/AUTH0_DOMAIN` | Auth0 tenant domain | planned |
-| 14 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/AUTH0_AUDIENCE` | Auth0 API identifier | planned |
-| 15 | KMS key | AWS-managed | `aws/ssm` | Encrypts the parameters above. Created by AWS on first use; free. | planned |
-| 16 | S3 bucket | `AWS::S3::Bucket` | `lumanu-mcp-poc-artifacts-346380392072-us-east-1` | Function zips, content-addressed. Created by `npm run deploy` on first run, public access blocked, **not deleted with the stack**. | planned |
+| 10 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/HASURA_GRAPHQL_ENDPOINT` | Hasura Cloud endpoint (not secret, kept together for one read) | planned |
+| 11 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/HASURA_ADMIN_SECRET` | Hasura admin secret | planned |
+| 12 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/AUTH0_DOMAIN` | Auth0 tenant domain, bare hostname — the issuer is built as `https://<domain>/` | planned |
+| 13 | SSM parameter | `SecureString` | `/lumanu-mcp-poc/prod/AUTH0_AUDIENCE` | Auth0 API identifier | planned |
+| 14 | KMS key | AWS-managed | `aws/ssm` | Encrypts the parameters above. Created by AWS on first use; free. | planned |
+| 15 | S3 bucket | `AWS::S3::Bucket` | `lumanu-mcp-poc-artifacts-346380392072-us-east-1` | Function zips, content-addressed. Created by `npm run deploy` on first run, public access blocked, **not deleted with the stack**. | planned |
+
+The last path segment of each parameter *is* the environment variable name the function reads
+— see `src/config/secrets.ts`. A misspelling there is not a validation error; it is a variable
+that is silently absent at cold start.
+
+### Why `SUPABASE_DB_URL` is not here
+
+It was, and it should not have been. The deployed function runs `MockLumanuProvider`, which
+reaches the seeded data over GraphQL through Hasura and never opens a PostgreSQL socket. It
+needs the Hasura endpoint and admin secret, and nothing else from the data layer.
+
+The connection string was on this list only because `createProvider` loaded the whole
+data-layer configuration, which made all three values mandatory. That put a database password
+in SSM to satisfy a check rather than a caller. `loadHasuraConfig` now supplies the provider
+and `loadDataLayerConfig` serves the `scripts/db/*` tools, which do speak SQL and run from a
+developer machine against a gitignored `.env`.
+
+One thing this does not buy: the Hasura admin secret is functionally equivalent to full
+database access, so removing the connection string reduces what is *stored*, not what an
+attacker holding the remainder could *reach*. See
+[the Hasura export discovery](./discoveries/2026-08-13-hasura-export-contains-database-password.md).
 
 Read them back at any time — values are omitted, names only:
 
@@ -109,7 +129,6 @@ npm run destroy
 
 # 2. The parameters, which the stack does not own.
 aws ssm delete-parameters --region us-east-1 --names \
-  /lumanu-mcp-poc/prod/SUPABASE_DB_URL \
   /lumanu-mcp-poc/prod/HASURA_GRAPHQL_ENDPOINT \
   /lumanu-mcp-poc/prod/HASURA_ADMIN_SECRET \
   /lumanu-mcp-poc/prod/AUTH0_DOMAIN \
